@@ -30,12 +30,14 @@ from app.models.schemas import ChatMessage
 # System prompt template for RAG
 RAG_SYSTEM_PROMPT = """You are a helpful AI assistant that answers questions based on the provided context.
 Use the following pieces of context to answer the user's question. If you don't know the answer, just say that you don't know, don't try to make up an answer.
-Be concise and clear in your response. Always cite your sources at the end of your response.
+Be concise and clear in your response.
 
 Context:
 {context}
 
-Question: {query}
+{conversation_history}
+
+Current Question: {query}
 
 Answer:"""
 
@@ -357,8 +359,22 @@ class LLMService:
         # Create prompt
         prompt = PromptTemplate(template=RAG_SYSTEM_PROMPT)
         
-        # Format the prompt with context and query
-        formatted_prompt = prompt.format(context=context, query=query)
+        # Format conversation history if provided
+        conversation_history_text = ""
+        if history and len(history) > 0:
+            conversation_history_text = "Previous conversation:\n"
+            for msg in history:
+                if msg.role == "user":
+                    conversation_history_text += f"User: {msg.content}\n"
+                elif msg.role == "assistant":
+                    conversation_history_text += f"Assistant: {msg.content}\n"
+        
+        # Format the prompt with context, conversation history, and query
+        formatted_prompt = prompt.format(
+            context=context,
+            conversation_history=conversation_history_text,
+            query=query
+        )
         
         # Generate response
         if streaming:

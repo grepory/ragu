@@ -11,6 +11,7 @@ RAGU is a complete RAG (Retrieval-Augmented Generation) management and interroga
   - Ollama with local or remote models (including nomic-embed-text)
   - Anthropic with Claude models (including haiku)
   - OpenAI with GPT models (including 4o)
+- **Conversational UI**: Interactive chat interface with conversation history and context awareness
 - **WebSocket Chat**: Real-time, streaming chat interface with RAG capabilities
 - **REST API**: Comprehensive REST API for all operations
 - **Document Processing**: Support for various document types (PDF, DOCX, CSV, text)
@@ -270,6 +271,36 @@ The server will respond with messages in the following formats:
 }
 ```
 
+## Web Interface
+
+RAGU provides a web interface that allows you to interact with the system through your browser. The interface includes:
+
+### Document Upload
+
+- Drag and drop PDF files to upload
+- Add tags to organize your documents
+- View upload progress and status
+
+### Conversational Chat Interface
+
+The chat interface allows you to have natural conversations with the AI about your documents:
+
+- **Conversation History**: The system maintains the full conversation history, allowing for contextual follow-up questions
+- **Enter Key Support**: Press Enter to send your message (use Shift+Enter for new lines)
+- **Visual Distinction**: User and assistant messages are visually distinct for easy reading
+- **Source Citations**: The system displays the source documents used to generate responses
+
+To use the conversational interface:
+
+1. Select a collection from the dropdown
+2. (Optional) Select a specific model
+3. Type your question in the message box
+4. Press Enter or click "Send Message"
+5. View the AI's response and the sources used
+6. Continue the conversation with follow-up questions
+
+The system will maintain context between questions, allowing for a more natural conversation flow.
+
 ## Examples
 
 ### Python Client Example
@@ -393,8 +424,37 @@ if __name__ == "__main__":
     # Query documents with multiple tag filtering (documents tagged as either "important" or "personal")
     important_results = query_documents("my_docs", "What is RAG?", tags=["important", "personal"])
     
-    # Chat with WebSocket
+    # Chat with WebSocket - Single query
     asyncio.run(chat_websocket("my_docs", "Explain RAG in simple terms."))
+    
+    # Chat with WebSocket - Conversation with history
+    async def conversation_example():
+        # First query
+        print("\n--- Starting conversation ---")
+        response = await chat_websocket("my_docs", "Explain RAG in simple terms.")
+        
+        # Get the updated history from the response
+        conversation_history = response["history"]
+        
+        # Follow-up query using the conversation history
+        print("\n--- Follow-up question ---")
+        response = await chat_websocket(
+            "my_docs", 
+            "What are the main benefits compared to traditional approaches?",
+            history=conversation_history
+        )
+        
+        # Continue the conversation with another follow-up
+        conversation_history = response["history"]
+        print("\n--- Another follow-up question ---")
+        await chat_websocket(
+            "my_docs", 
+            "Can you give me a simple code example?",
+            history=conversation_history
+        )
+    
+    # Run the conversation example
+    asyncio.run(conversation_example())
 ```
 
 ## Project Structure

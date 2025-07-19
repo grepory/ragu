@@ -19,7 +19,7 @@ const { createApp, ref, onMounted, computed } = Vue;
 const ModelQueryComponent = {
     template: `
         <div class="model-query-component">
-            <h3><i class="bi bi-chat-left-text me-2"></i>Query Model</h3>
+            <h3><i class="bi bi-chat-left-text me-2"></i>Chat with Documents</h3>
             
             <!-- Collection selection -->
             <div class="mb-3 model-selection">
@@ -70,20 +70,40 @@ const ModelQueryComponent = {
                 </select>
             </div>
             
+            <!-- Conversation history -->
+            <div v-if="conversationHistory.length > 0" class="mb-3 conversation-history">
+                <h5><i class="bi bi-chat-dots me-2"></i>Conversation</h5>
+                <div class="conversation-container p-3 border rounded bg-light" style="max-height: 300px; overflow-y: auto;">
+                    <div v-for="(message, index) in conversationHistory" :key="index" 
+                         :class="['message mb-2 p-2 rounded', message.role === 'user' ? 'user-message text-end' : 'assistant-message']">
+                        <div class="message-header mb-1">
+                            <small class="fw-bold">
+                                <i :class="['bi me-1', message.role === 'user' ? 'bi-person-circle' : 'bi-robot']"></i>
+                                {{ message.role === 'user' ? 'You' : 'Assistant' }}
+                            </small>
+                        </div>
+                        <div class="message-content">
+                            {{ message.content }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
             <!-- Query input -->
             <div class="mb-3 query-input">
                 <label for="query-textarea" class="form-label">
-                    <i class="bi bi-question-circle me-1"></i> Query
+                    <i class="bi bi-question-circle me-1"></i> Your Message
                 </label>
                 <textarea
                     id="query-textarea"
                     class="form-control"
                     v-model="queryText"
-                    placeholder="Enter your question here..."
-                    rows="4"
+                    placeholder="Type your message here..."
+                    rows="3"
+                    @keydown.enter.prevent="handleEnterKey"
                 ></textarea>
                 <div class="form-text">
-                    Ask a question about the documents in the selected collection.
+                    Ask a question about the documents in the selected collection. Press Enter to send.
                 </div>
             </div>
             
@@ -95,7 +115,7 @@ const ModelQueryComponent = {
             >
                 <i v-if="!isLoading" class="bi bi-send me-1"></i>
                 <span v-if="isLoading" class="loading-spinner me-2"></span>
-                {{ isLoading ? 'Processing...' : 'Submit Query' }}
+                {{ isLoading ? 'Processing...' : 'Send Message' }}
             </button>
             
             <!-- Error message -->
@@ -103,37 +123,25 @@ const ModelQueryComponent = {
                 {{ error }}
             </div>
             
-            <!-- Results -->
-            <div v-if="results" class="mt-4">
-                <h4><i class="bi bi-lightbulb me-2"></i>Results</h4>
-                <div class="result-content p-3 border rounded bg-light">
-                    <div class="mb-3">
-                        <div class="fw-bold mb-2">
-                            <i class="bi bi-robot me-1"></i> Answer:
-                        </div>
-                        <p class="mb-0">{{ results.answer }}</p>
-                    </div>
-                    
-                    <div v-if="results.sources && results.sources.length > 0" class="mt-4">
-                        <div class="fw-bold mb-2">
-                            <i class="bi bi-journal-text me-1"></i> Sources:
-                        </div>
-                        <ul class="list-group">
-                            <li v-for="(source, index) in results.sources" :key="index" class="list-group-item">
-                                <div>{{ source.text }}</div>
-                                <div class="result-source">
-                                    <small>
-                                        <i class="bi bi-file-earmark me-1"></i>
-                                        {{ source.metadata.source || 'Unknown' }}
-                                        <span v-if="source.metadata.page">
-                                            <i class="bi bi-file-earmark-text ms-2 me-1"></i>
-                                            Page: {{ source.metadata.page }}
-                                        </span>
-                                    </small>
-                                </div>
-                            </li>
-                        </ul>
-                    </div>
+            <!-- Sources -->
+            <div v-if="lastSources && lastSources.length > 0" class="mt-4">
+                <h5><i class="bi bi-journal-text me-2"></i>Sources</h5>
+                <div class="sources-container p-3 border rounded bg-light">
+                    <ul class="list-group">
+                        <li v-for="(source, index) in lastSources" :key="index" class="list-group-item">
+                            <div>{{ source.text }}</div>
+                            <div class="result-source">
+                                <small>
+                                    <i class="bi bi-file-earmark me-1"></i>
+                                    {{ source.metadata.source || 'Unknown' }}
+                                    <span v-if="source.metadata.page">
+                                        <i class="bi bi-file-earmark-text ms-2 me-1"></i>
+                                        Page: {{ source.metadata.page }}
+                                    </span>
+                                </small>
+                            </div>
+                        </li>
+                    </ul>
                 </div>
                 
                 <div class="mt-3 text-end">
@@ -155,6 +163,8 @@ const ModelQueryComponent = {
         const isLoading = ref(false);
         const error = ref('');
         const results = ref(null);
+        const conversationHistory = ref([]);
+        const lastSources = ref([]);
         
         // Computed properties
         const canSubmit = computed(() => {
@@ -186,25 +196,52 @@ const ModelQueryComponent = {
             }
         };
         
+        // Handle Enter key press
+        const handleEnterKey = (event) => {
+            // Only submit if not pressing shift+enter (which should create a new line)
+            if (!event.shiftKey && queryText.value.trim()) {
+                submitQuery();
+            }
+        };
+        
         // Submit query to API
         const submitQuery = async () => {
             if (!canSubmit.value) return;
             
             isLoading.value = true;
             error.value = '';
-            results.value = null;
+            
+            // Add user message to conversation history
+            const userMessage = {
+                role: 'user',
+                content: queryText.value
+            };
+            conversationHistory.value.push(userMessage);
+            
+            // Scroll to the bottom of the conversation container
+            setTimeout(() => {
+                const container = document.querySelector('.conversation-container');
+                if (container) {
+                    container.scrollTop = container.scrollHeight;
+                }
+            }, 0);
             
             try {
                 // Prepare request data
                 const requestData = {
                     collection_name: selectedCollection.value,
-                    query: queryText.value
+                    query: queryText.value,
+                    history: conversationHistory.value
                 };
                 
                 // Add model if selected
                 if (selectedModel.value) {
                     requestData.model = selectedModel.value;
                 }
+                
+                // Clear the query text
+                const currentQuery = queryText.value;
+                queryText.value = '';
                 
                 // Send request to chat API
                 const response = await fetch('/api/v1/chat/', {
@@ -219,60 +256,39 @@ const ModelQueryComponent = {
                     const data = await response.json();
                     results.value = data;
                     
-                    // Display results in the results container
+                    // Update conversation history with the response
+                    conversationHistory.value = data.history;
+                    
+                    // Update last sources
+                    lastSources.value = data.sources;
+                    
+                    // Scroll to the bottom of the conversation container
+                    setTimeout(() => {
+                        const container = document.querySelector('.conversation-container');
+                        if (container) {
+                            container.scrollTop = container.scrollHeight;
+                        }
+                    }, 0);
+                    
+                    // Clear the results container (we're now using the conversation history)
                     const resultsContainer = document.getElementById('results-container');
                     if (resultsContainer) {
-                        resultsContainer.innerHTML = `
-                            <h4><i class="bi bi-lightbulb me-2"></i>Results</h4>
-                            <div class="result-content p-3 border rounded bg-light">
-                                <div class="mb-3">
-                                    <div class="fw-bold mb-2">
-                                        <i class="bi bi-robot me-1"></i> Answer:
-                                    </div>
-                                    <p class="mb-0">${data.answer}</p>
-                                </div>
-                                
-                                ${data.sources && data.sources.length > 0 ? `
-                                    <div class="mt-4">
-                                        <div class="fw-bold mb-2">
-                                            <i class="bi bi-journal-text me-1"></i> Sources:
-                                        </div>
-                                        <ul class="list-group">
-                                            ${data.sources.map((source, index) => `
-                                                <li class="list-group-item">
-                                                    <div>${source.text}</div>
-                                                    <div class="result-source">
-                                                        <small>
-                                                            <i class="bi bi-file-earmark me-1"></i>
-                                                            ${source.metadata.source || 'Unknown'}
-                                                            ${source.metadata.page ? `
-                                                                <span>
-                                                                    <i class="bi bi-file-earmark-text ms-2 me-1"></i>
-                                                                    Page: ${source.metadata.page}
-                                                                </span>
-                                                            ` : ''}
-                                                        </small>
-                                                    </div>
-                                                </li>
-                                            `).join('')}
-                                        </ul>
-                                    </div>
-                                ` : ''}
-                            </div>
-                            
-                            <div class="mt-3 text-end">
-                                <small class="text-muted">
-                                    <i class="bi bi-info-circle me-1"></i>
-                                    Model used: ${selectedModel.value || 'Default model'}
-                                </small>
-                            </div>
-                        `;
+                        resultsContainer.innerHTML = '';
                     }
                 } else {
+                    // If there's an error, remove the user message from history
+                    conversationHistory.value.pop();
+                    
+                    // Restore the query text
+                    queryText.value = currentQuery;
+                    
                     const errorData = await response.json();
                     error.value = errorData.detail || 'Failed to process query. Please try again.';
                 }
             } catch (err) {
+                // If there's an error, remove the user message from history
+                conversationHistory.value.pop();
+                
                 console.error('Error submitting query:', err);
                 error.value = `Error submitting query: ${err.message}`;
             } finally {
@@ -289,8 +305,11 @@ const ModelQueryComponent = {
             isLoading,
             error,
             results,
+            conversationHistory,
+            lastSources,
             canSubmit,
-            submitQuery
+            submitQuery,
+            handleEnterKey
         };
     }
 };

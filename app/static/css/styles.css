@@ -100,6 +100,62 @@ h1 {
     margin-top: 0.5rem;
 }
 
+/* Conversation Styles */
+.conversation-container {
+    min-height: 200px;
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 0.25rem;
+    margin-bottom: 1rem;
+}
+
+.message {
+    max-width: 80%;
+    margin-bottom: 1rem;
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    position: relative;
+}
+
+.user-message {
+    background-color: #e3f2fd;
+    color: #0d47a1;
+    margin-left: auto;
+    border-top-right-radius: 0;
+}
+
+.assistant-message {
+    background-color: #f5f5f5;
+    color: #333;
+    margin-right: auto;
+    border-top-left-radius: 0;
+}
+
+.message-header {
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+}
+
+.user-message .message-header {
+    color: #1565c0;
+}
+
+.assistant-message .message-header {
+    color: #555;
+}
+
+.message-content {
+    word-break: break-word;
+}
+
+.sources-container {
+    margin-top: 1rem;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
 /* Loading indicator */
 .loading-spinner {
     display: inline-block;
