@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 import chromadb
 from chromadb.config import Settings as ChromaSettings
 from chromadb.utils import embedding_functions
+from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 
 from app.core.config import settings
 
@@ -23,11 +24,38 @@ class ChromaClient:
             )
         )
         
-        # Default embedding function (OpenAI)
-        self.default_ef = embedding_functions.OpenAIEmbeddingFunction(
-            api_key=settings.OPENAI_API_KEY,
-            model_name="text-embedding-ada-002"
-        )
+        # Try to use the embedding function based on the configured LLM provider
+        if settings.DEFAULT_LLM_PROVIDER == "openai" and settings.OPENAI_API_KEY:
+            try:
+                # Try to use OpenAI embedding function
+                self.default_ef = embedding_functions.OpenAIEmbeddingFunction(
+                    api_key=settings.OPENAI_API_KEY,
+                    model_name="text-embedding-ada-002"
+                )
+                print("Using OpenAI embedding function")
+            except Exception as e:
+                print(f"Failed to initialize OpenAI embedding function: {e}")
+                # Fall back to DefaultEmbeddingFunction
+                self.default_ef = DefaultEmbeddingFunction()
+                print("Using ChromaDB's DefaultEmbeddingFunction as fallback")
+        elif settings.DEFAULT_LLM_PROVIDER == "ollama" and settings.OLLAMA_EMBED_MODEL:
+            try:
+                # Try to use Ollama embedding function if available
+                from chromadb.utils.embedding_functions import OllamaEmbeddingFunction
+                self.default_ef = OllamaEmbeddingFunction(
+                    url=settings.OLLAMA_BASE_URL,
+                    model_name=settings.OLLAMA_EMBED_MODEL
+                )
+                print(f"Using Ollama embedding function with model {settings.OLLAMA_EMBED_MODEL}")
+            except Exception as e:
+                print(f"Failed to initialize Ollama embedding function: {e}")
+                # Fall back to DefaultEmbeddingFunction
+                self.default_ef = DefaultEmbeddingFunction()
+                print("Using ChromaDB's DefaultEmbeddingFunction as fallback")
+        else:
+            # Use DefaultEmbeddingFunction as a fallback
+            self.default_ef = DefaultEmbeddingFunction()
+            print("Using ChromaDB's DefaultEmbeddingFunction as fallback")
     
     def get_or_create_collection(self, collection_name: str) -> chromadb.Collection:
         """Get or create a collection in ChromaDB.

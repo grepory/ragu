@@ -1,13 +1,16 @@
 from typing import List, Dict, Any, Optional, Callable, AsyncGenerator, Protocol, Union, Type
-import json
 import abc
-from llama_index.llms import Ollama
-from llama_index.core.llms import ChatMessage as LlamaIndexChatMessage
 from llama_index.core.callbacks import CallbackManager
-from llama_index.core.base.llms.types import ChatResponse, MessageRole, LLM
+from llama_index.core.llms import LLM
 from llama_index.core.prompts import PromptTemplate
 
 # Import these conditionally to avoid errors if not installed
+try:
+    from llama_index.llms import Ollama
+    OLLAMA_AVAILABLE = True
+except ImportError:
+    OLLAMA_AVAILABLE = False
+
 try:
     from llama_index.llms.anthropic import Anthropic
     ANTHROPIC_AVAILABLE = True
@@ -95,6 +98,9 @@ class OllamaProvider(LLMProviderBase):
         Returns:
             Ollama LLM instance
         """
+        if not OLLAMA_AVAILABLE:
+            raise ImportError("Ollama package is not installed or not compatible. Please install it with 'pip install llama-index-llms-ollama'")
+            
         callback_manager = None
         if streaming and callback_handler:
             callback_manager = CallbackManager([callback_handler])
@@ -103,7 +109,6 @@ class OllamaProvider(LLMProviderBase):
             base_url=settings.OLLAMA_BASE_URL,
             model=model or self.get_default_model(),
             temperature=0.7,
-            streaming=streaming,
             callback_manager=callback_manager
         )
     
@@ -142,7 +147,6 @@ class AnthropicProvider(LLMProviderBase):
             api_key=settings.ANTHROPIC_API_KEY,
             model=model or self.get_default_model(),
             temperature=0.7,
-            streaming=streaming,
             callback_manager=callback_manager
         )
     
@@ -181,7 +185,6 @@ class OpenAIProvider(LLMProviderBase):
             api_key=settings.OPENAI_API_KEY,
             model=model or self.get_default_model(),
             temperature=0.7,
-            streaming=streaming,
             callback_manager=callback_manager
         )
     
@@ -199,12 +202,33 @@ class LLMService:
     
     def __init__(self):
         """Initialize LLM service."""
-        self.providers = {
-            LLMProvider.OLLAMA: OllamaProvider(),
-            LLMProvider.ANTHROPIC: AnthropicProvider(),
-            LLMProvider.OPENAI: OpenAIProvider()
-        }
+        # Initialize available providers
+        self.providers = {}
+        
+        # Add Ollama provider if available
+        if OLLAMA_AVAILABLE:
+            self.providers[LLMProvider.OLLAMA] = OllamaProvider()
+            
+        # Add Anthropic provider if available
+        if ANTHROPIC_AVAILABLE:
+            self.providers[LLMProvider.ANTHROPIC] = AnthropicProvider()
+            
+        # Add OpenAI provider if available
+        if OPENAI_AVAILABLE:
+            self.providers[LLMProvider.OPENAI] = OpenAIProvider()
+            
+        # Set default provider
         self.default_provider = settings.DEFAULT_LLM_PROVIDER
+        
+        # If the default provider is not available, fall back to an available provider
+        if self.default_provider not in self.providers:
+            if self.providers:
+                # Use the first available provider
+                self.default_provider = next(iter(self.providers.keys()))
+                print(f"Default provider {settings.DEFAULT_LLM_PROVIDER} not available, falling back to {self.default_provider}")
+            else:
+                print("WARNING: No LLM providers available. Please install at least one of: llama-index-llms-ollama, llama-index-llms-anthropic, or llama-index-llms-openai")
+                
         # For backward compatibility
         self.default_model = settings.DEFAULT_MODEL
     
@@ -247,11 +271,33 @@ class LLMService:
         """
         provider_enum, model_name = self._parse_model_string(model)
         
+        # Check if the requested provider is available
+        if provider_enum not in self.providers:
+            # If not, try to use the default provider
+            if self.default_provider in self.providers:
+                print(f"Provider {provider_enum} not available, falling back to {self.default_provider}")
+                provider_enum = self.default_provider
+            else:
+                # If no providers are available, raise an error
+                available_providers = list(self.providers.keys())
+                raise ImportError(f"Provider {provider_enum} not available. Available providers: {available_providers if available_providers else 'None'}")
+        
         # Get provider instance
         provider = self.providers[provider_enum]
         
-        # Get LLM from provider
-        return provider.get_llm(model=model_name, streaming=streaming, callback_handler=callback_handler)
+        try:
+            # Get LLM from provider
+            return provider.get_llm(model=model_name, streaming=streaming, callback_handler=callback_handler)
+        except ImportError as e:
+            # If there's an import error, try to use another provider
+            available_providers = [p for p in self.providers.keys() if p != provider_enum]
+            if available_providers:
+                fallback_provider = available_providers[0]
+                print(f"Error using provider {provider_enum}: {e}. Falling back to {fallback_provider}")
+                return self.providers[fallback_provider].get_llm(model=None, streaming=streaming, callback_handler=callback_handler)
+            else:
+                # If no other providers are available, re-raise the error
+                raise
     
     async def generate_rag_response(
         self,

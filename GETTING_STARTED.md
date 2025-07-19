@@ -27,35 +27,31 @@ This guide will help you get started with RAGU (Retrieval-Augmented Generation U
    pip install -r requirements.txt
    ```
 
-4. Create a `.env` file in the project root with your LLM provider configuration:
-   ```
-   # Default LLM provider (ollama, anthropic, or openai)
-   DEFAULT_LLM_PROVIDER=ollama
-   
-   # Ollama configuration
-   OLLAMA_BASE_URL=http://localhost:11434
-   OLLAMA_DEFAULT_MODEL=llama2
-   OLLAMA_EMBED_MODEL=nomic-embed-text
-   
-   # Anthropic configuration (if using Anthropic)
-   ANTHROPIC_API_KEY=your_anthropic_api_key
-   ANTHROPIC_DEFAULT_MODEL=claude-3-haiku-20240307
-   
-   # OpenAI configuration (if using OpenAI)
-   OPENAI_API_KEY=your_openai_api_key
-   OPENAI_DEFAULT_MODEL=gpt-4o
-   
-   # Legacy setting (for backward compatibility)
-   DEFAULT_MODEL=llama2
+4. Copy the `.env.example` file to `.env` in the project root and update it with your LLM provider configuration:
+   ```bash
+   cp .env.example .env
+   # Then edit the .env file with your preferred text editor
    ```
    
    Note: 
+   - The `.env.example` file contains all the necessary environment variables with default values and explanatory comments.
    - If you're using a remote Ollama instance, update the OLLAMA_BASE_URL accordingly.
    - You only need to configure the providers you plan to use.
 
 ### Running the Server
 
 Start the RAGU server with:
+
+```bash
+python run_app.py
+```
+
+This will:
+- Start the server on port 8000
+- Display clear URLs for accessing the application
+- Automatically open your default web browser to the frontend
+
+Alternatively, you can start the server manually with:
 
 ```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
@@ -168,6 +164,14 @@ For a more interactive experience with streaming responses, use the WebSocket en
 6. **Missing dependencies**: If you encounter import errors, make sure all dependencies are installed with `pip install -r requirements.txt`.
 
 7. **Permission errors**: Ensure that the application has write permissions for the `chroma_db` directory.
+
+8. **Document upload errors**: If you see an error like "Failed to extract content from '[filename]'", the document might be in a format that can't be processed properly. Try the following:
+   - Check if the document is password-protected or encrypted
+   - Convert the document to a different format (e.g., from PDF to DOCX)
+   - For PDFs, ensure they contain actual text content and not just scanned images
+   - Try splitting large documents into smaller chunks before uploading
+
+9. **Embedding function errors**: If you see an error like "You must provide an embedding function to compute embeddings", ensure that you have properly configured your LLM provider settings in the .env file. The system uses embedding functions from your configured LLM provider (OpenAI or Ollama) and falls back to a default embedding function if neither is available.
 
 ### Getting Help
 

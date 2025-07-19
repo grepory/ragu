@@ -68,12 +68,17 @@ async def upload_document(
             # Process the document
             texts, metadatas, ids = document_processor.process_file(temp_file_path, file.filename)
             
+            # Check if any chunks were generated
+            if not texts or not ids:
+                raise ValueError(f"Failed to extract content from '{file.filename}'. Expected IDs to be a non-empty list, got {ids}")
+            
             # Add additional metadata to each chunk
             for metadata in metadatas:
                 metadata.update(metadata_dict)
                 # Add tags if provided
                 if tag_list:
-                    metadata["tags"] = tag_list
+                    # Convert tag list to comma-separated string to ensure compatibility with ChromaDB
+                    metadata["tags"] = ",".join(tag_list)
             
             # Add to vector database
             chroma_client.add_documents(
@@ -124,6 +129,10 @@ async def add_text(text_input: TextInput):
             source="direct_input"
         )
         
+        # Check if any chunks were generated
+        if not texts or not ids:
+            raise ValueError(f"Failed to extract content from text input. Expected IDs to be a non-empty list, got {ids}")
+        
         # Add additional metadata if provided
         if text_input.metadata:
             for metadata in metadatas:
@@ -132,7 +141,8 @@ async def add_text(text_input: TextInput):
         # Add tags if provided
         if text_input.tags:
             for metadata in metadatas:
-                metadata["tags"] = text_input.tags
+                # Convert tag list to comma-separated string to ensure compatibility with ChromaDB
+                metadata["tags"] = ",".join(text_input.tags)
         
         # Add to vector database
         chroma_client.add_documents(
@@ -190,6 +200,11 @@ async def get_document(collection_name: str, document_id: str):
         text = result["documents"][0]
         metadata = result.get("metadatas", [{}])[0] if result.get("metadatas") else {}
         
+        # Convert tags from comma-separated string back to list if present
+        tags = metadata.get("tags")
+        if tags and isinstance(tags, str):
+            tags = [tag.strip() for tag in tags.split(',') if tag.strip()]
+        
         return DocumentResponse(
             id=doc_id,
             text=text,
@@ -198,7 +213,7 @@ async def get_document(collection_name: str, document_id: str):
                 "chunk": metadata.get("chunk"),
                 "total_chunks": metadata.get("total_chunks"),
                 "page": metadata.get("page"),
-                "tags": metadata.get("tags"),
+                "tags": tags,
                 "additional_metadata": {k: v for k, v in metadata.items() 
                                        if k not in ["source", "chunk", "total_chunks", "page", "tags"]}
             }
@@ -278,6 +293,10 @@ async def query_documents(query: QueryRequest):
                 text = result["documents"][0][i] if result.get("documents") and result["documents"][0] else ""
                 metadata = result["metadatas"][0][i] if result.get("metadatas") and result["metadatas"][0] else {}
                 distance = result["distances"][0][i] if result.get("distances") and result["distances"][0] else 0
+                
+                # Convert tags from comma-separated string back to list if present
+                if metadata.get("tags") and isinstance(metadata["tags"], str):
+                    metadata["tags"] = [tag.strip() for tag in metadata["tags"].split(',') if tag.strip()]
                 
                 # Convert distance to similarity score (1 - distance)
                 score = 1 - distance if distance <= 1 else 0

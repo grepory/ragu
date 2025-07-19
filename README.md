@@ -41,31 +41,28 @@ RAGU is a complete RAG (Retrieval-Augmented Generation) management and interroga
    pip install -r requirements.txt
    ```
 
-4. Create a `.env` file in the project root with your LLM provider configuration:
+4. Copy the `.env.example` file to `.env` in the project root and update it with your LLM provider configuration:
+   ```bash
+   cp .env.example .env
+   # Then edit the .env file with your preferred text editor
    ```
-   # Default LLM provider (ollama, anthropic, or openai)
-   DEFAULT_LLM_PROVIDER=ollama
    
-   # Ollama configuration
-   OLLAMA_BASE_URL=http://localhost:11434
-   OLLAMA_DEFAULT_MODEL=llama2
-   OLLAMA_EMBED_MODEL=nomic-embed-text
-   
-   # Anthropic configuration (if using Anthropic)
-   ANTHROPIC_API_KEY=your_anthropic_api_key
-   ANTHROPIC_DEFAULT_MODEL=claude-3-haiku-20240307
-   
-   # OpenAI configuration (if using OpenAI)
-   OPENAI_API_KEY=your_openai_api_key
-   OPENAI_DEFAULT_MODEL=gpt-4o
-   
-   # Legacy setting (for backward compatibility)
-   DEFAULT_MODEL=llama2
-   ```
+   The `.env.example` file contains all the necessary environment variables with default values and explanatory comments. You only need to configure the providers you plan to use.
 
 ## Running the Application
 
 Start the server with:
+
+```bash
+python run_app.py
+```
+
+This will:
+- Start the server on port 8000
+- Display clear URLs for accessing the application
+- Automatically open your default web browser to the frontend
+
+Alternatively, you can start the server manually with:
 
 ```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000

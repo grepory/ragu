@@ -74,9 +74,14 @@ class DocumentProcessor:
             return texts, metadatas, ids
         
         except Exception as e:
-            # Log the error and re-raise
+            # Log the error with more details
+            import traceback
             print(f"Error processing file {file_name}: {str(e)}")
-            raise
+            print(f"File path: {file_path}")
+            print(f"File extension: {file_extension}")
+            print(f"Traceback: {traceback.format_exc()}")
+            # Return empty lists to avoid breaking the upload process
+            return [], [], []
     
     def process_text(self, text: str, source: str = "direct_input") -> Tuple[List[str], List[Dict[str, Any]], List[str]]:
         """Process raw text and split it into chunks.

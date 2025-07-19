@@ -1,44 +1,31 @@
 import requests
 import json
-import os
 
 # Base URL for the API
 BASE_URL = "http://localhost:8000/api/v1"
 
-def test_upload_with_tags():
-    """Test uploading a document with tags."""
-    # Path to a test PDF file
-    pdf_path = "HOA rules.pdf"
-    
-    if not os.path.exists(pdf_path):
-        print(f"Test file {pdf_path} not found. Please provide a valid PDF file.")
-        return
-    
+def test_add_text_with_tags():
+    """Test adding text with tags to verify the tag handling fix."""
     # Prepare the request
-    url = f"{BASE_URL}/documents/upload"
+    url = f"{BASE_URL}/documents/text"
     
-    # Form data with tags
-    files = {
-        'file': (os.path.basename(pdf_path), open(pdf_path, 'rb'), 'application/pdf')
-    }
+    # JSON data with tags
     data = {
-        'collection_name': 'test_collection',
-        'tags': 'house,rules,important'
+        "text": "This is a test document for the house collection with house tag.",
+        "collection_name": "house",
+        "tags": ["house"]
     }
     
     # Send the request
-    response = requests.post(url, files=files, data=data)
+    response = requests.post(url, json=data)
     
     # Check the response
     if response.status_code == 201:
-        print("Document uploaded successfully with tags.")
+        print("Text added successfully with tags.")
         print(response.json())
-        
-        # Get the document ID from the response
-        # For this test, we'll need to query the collection to get a document ID
         return True
     else:
-        print(f"Failed to upload document: {response.status_code}")
+        print(f"Failed to add text: {response.status_code}")
         print(response.text)
         return False
 
@@ -49,8 +36,8 @@ def test_query_with_tags():
     
     # Query with tag filter
     data = {
-        "collection_name": "test_collection",
-        "query_text": "rules",
+        "collection_name": "house",
+        "query_text": "house",
         "n_results": 5,
         "where": {"tags": {"$in": ["house"]}}
     }
@@ -80,10 +67,10 @@ def test_query_with_tags():
 
 def main():
     """Run the tests."""
-    print("Testing document upload with tags...")
-    upload_success = test_upload_with_tags()
+    print("Testing adding text with tags...")
+    add_success = test_add_text_with_tags()
     
-    if upload_success:
+    if add_success:
         print("\nTesting query with tag filters...")
         test_query_with_tags()
 
