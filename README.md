@@ -1,0 +1,399 @@
+# RAGU: Retrieval-Augmented Generation Utility
+
+RAGU is a complete RAG (Retrieval-Augmented Generation) management and interrogation system built with FastAPI, ChromaDB, and LangChain. It provides a powerful API for document management, vector storage, and LLM-powered chat functionality.
+
+## Features
+
+- **Document Management**: Upload, process, and manage documents in vector collections
+- **Vector Database**: ChromaDB integration for efficient semantic search
+- **LLM Integration**: Support for multiple LLM providers:
+  - Ollama with local or remote models (including nomic-embed-text)
+  - Anthropic with Claude models (including haiku)
+  - OpenAI with GPT models (including 4o)
+- **WebSocket Chat**: Real-time, streaming chat interface with RAG capabilities
+- **REST API**: Comprehensive REST API for all operations
+- **Document Processing**: Support for various document types (PDF, DOCX, CSV, text)
+
+## Installation
+
+### Prerequisites
+
+- Python 3.8+
+- [Optional] Virtual environment (recommended)
+
+### Setup
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/ragu.git
+   cd ragu
+   ```
+
+2. Create and activate a virtual environment (optional but recommended):
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. Create a `.env` file in the project root with your LLM provider configuration:
+   ```
+   # Default LLM provider (ollama, anthropic, or openai)
+   DEFAULT_LLM_PROVIDER=ollama
+   
+   # Ollama configuration
+   OLLAMA_BASE_URL=http://localhost:11434
+   OLLAMA_DEFAULT_MODEL=llama2
+   OLLAMA_EMBED_MODEL=nomic-embed-text
+   
+   # Anthropic configuration (if using Anthropic)
+   ANTHROPIC_API_KEY=your_anthropic_api_key
+   ANTHROPIC_DEFAULT_MODEL=claude-3-haiku-20240307
+   
+   # OpenAI configuration (if using OpenAI)
+   OPENAI_API_KEY=your_openai_api_key
+   OPENAI_DEFAULT_MODEL=gpt-4o
+   
+   # Legacy setting (for backward compatibility)
+   DEFAULT_MODEL=llama2
+   ```
+
+## Running the Application
+
+Start the server with:
+
+```bash
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+The API will be available at http://localhost:8000, and the API documentation at http://localhost:8000/docs.
+
+## API Documentation
+
+### Collections API
+
+Collections are used to organize documents in the vector database.
+
+#### Create a Collection
+
+```http
+POST /api/v1/collections/
+Content-Type: application/json
+
+{
+  "name": "my_collection",
+  "description": "My first collection"
+}
+```
+
+#### List Collections
+
+```http
+GET /api/v1/collections/
+```
+
+#### Get Collection
+
+```http
+GET /api/v1/collections/{collection_name}
+```
+
+#### Delete Collection
+
+```http
+DELETE /api/v1/collections/{collection_name}
+```
+
+### Documents API
+
+Documents are the core content stored in the vector database.
+
+#### Upload a Document
+
+```http
+POST /api/v1/documents/upload
+Content-Type: multipart/form-data
+
+file: [file]
+collection_name: my_collection
+additional_metadata: {"source": "website", "author": "John Doe"}
+```
+
+#### Add Text Directly
+
+```http
+POST /api/v1/documents/text
+Content-Type: application/json
+
+{
+  "text": "This is some text to add to the vector database.",
+  "collection_name": "my_collection",
+  "metadata": {"source": "direct_input", "author": "Jane Smith"}
+}
+```
+
+#### Get Document
+
+```http
+GET /api/v1/documents/{collection_name}/{document_id}
+```
+
+#### Delete Document
+
+```http
+DELETE /api/v1/documents/{collection_name}/{document_id}
+```
+
+#### Query Documents
+
+```http
+POST /api/v1/documents/query
+Content-Type: application/json
+
+{
+  "collection_name": "my_collection",
+  "query_text": "What is retrieval-augmented generation?",
+  "n_results": 5
+}
+```
+
+### Chat API
+
+The Chat API provides both REST and WebSocket interfaces for interacting with the LLM.
+
+#### Model Selection
+
+You can specify which LLM provider and model to use by setting the `model` parameter in your requests. The format is:
+
+```
+provider:model
+```
+
+For example:
+- `ollama:llama2` - Use Ollama with the llama2 model
+- `anthropic:claude-3-haiku-20240307` - Use Anthropic with the Claude 3 Haiku model
+- `openai:gpt-4o` - Use OpenAI with the GPT-4o model
+
+If you don't specify a provider, the default provider from your configuration will be used. If you don't specify a model, the default model for the selected provider will be used.
+
+#### REST Chat Endpoint
+
+```http
+POST /api/v1/chat/
+Content-Type: application/json
+
+{
+  "collection_name": "my_collection",
+  "query": "What is retrieval-augmented generation?",
+  "history": [
+    {"role": "user", "content": "Hello"},
+    {"role": "assistant", "content": "Hi there! How can I help you?"}
+  ],
+  "model": "llama2"
+}
+```
+
+#### WebSocket Chat
+
+Connect to the WebSocket endpoint at `/api/v1/chat/ws` and send JSON messages with the following format:
+
+```json
+{
+  "type": "chat",
+  "collection_name": "my_collection",
+  "query": "What is retrieval-augmented generation?",
+  "history": [
+    {"role": "user", "content": "Hello"},
+    {"role": "assistant", "content": "Hi there! How can I help you?"}
+  ],
+  "model": "llama2"
+}
+```
+
+The server will respond with messages in the following formats:
+
+1. Start message:
+```json
+{
+  "type": "start",
+  "content": "Generating response..."
+}
+```
+
+2. Token messages (streaming):
+```json
+{
+  "type": "token",
+  "content": "piece of text"
+}
+```
+
+3. Complete message:
+```json
+{
+  "type": "complete",
+  "content": {
+    "answer": "The complete answer...",
+    "sources": [
+      {
+        "id": "document_id",
+        "text": "Snippet of the source document...",
+        "metadata": {"source": "document.pdf", "page": 1}
+      }
+    ],
+    "history": [
+      {"role": "user", "content": "What is RAG?"},
+      {"role": "assistant", "content": "The complete answer..."}
+    ]
+  }
+}
+```
+
+4. Error message:
+```json
+{
+  "type": "error",
+  "content": "Error message"
+}
+```
+
+## Examples
+
+### Python Client Example
+
+Here's a simple Python client for interacting with the API:
+
+```python
+import requests
+import websockets
+import json
+import asyncio
+
+BASE_URL = "http://localhost:8000/api/v1"
+
+# Create a collection
+def create_collection(name, description=None):
+    response = requests.post(
+        f"{BASE_URL}/collections/",
+        json={"name": name, "description": description}
+    )
+    return response.json()
+
+# Upload a document
+def upload_document(file_path, collection_name, metadata=None):
+    files = {"file": open(file_path, "rb")}
+    data = {"collection_name": collection_name}
+    if metadata:
+        data["additional_metadata"] = json.dumps(metadata)
+    
+    response = requests.post(
+        f"{BASE_URL}/documents/upload",
+        files=files,
+        data=data
+    )
+    return response.json()
+
+# Query documents
+def query_documents(collection_name, query_text, n_results=5):
+    response = requests.post(
+        f"{BASE_URL}/documents/query",
+        json={
+            "collection_name": collection_name,
+            "query_text": query_text,
+            "n_results": n_results
+        }
+    )
+    return response.json()
+
+# WebSocket chat client
+async def chat_websocket(collection_name, query, history=None, model=None):
+    uri = f"ws://localhost:8000/api/v1/chat/ws"
+    async with websockets.connect(uri) as websocket:
+        # Send chat message
+        await websocket.send(json.dumps({
+            "type": "chat",
+            "collection_name": collection_name,
+            "query": query,
+            "history": history or [],
+            "model": model
+        }))
+        
+        # Process responses
+        full_response = ""
+        while True:
+            response = await websocket.recv()
+            data = json.loads(response)
+            
+            if data["type"] == "token":
+                # Print token as it arrives
+                print(data["content"], end="", flush=True)
+                full_response += data["content"]
+            
+            elif data["type"] == "complete":
+                # Chat complete
+                print("\n\nSources:")
+                for i, source in enumerate(data["content"]["sources"]):
+                    print(f"{i+1}. {source['text']} (ID: {source['id']})")
+                
+                return data["content"]
+            
+            elif data["type"] == "error":
+                # Error occurred
+                print(f"\nError: {data['content']}")
+                return None
+
+# Example usage
+if __name__ == "__main__":
+    # Create a collection
+    create_collection("my_docs", "My documents collection")
+    
+    # Upload a document
+    upload_document("path/to/document.pdf", "my_docs", {"source": "local"})
+    
+    # Query documents
+    results = query_documents("my_docs", "What is RAG?")
+    
+    # Chat with WebSocket
+    asyncio.run(chat_websocket("my_docs", "Explain RAG in simple terms."))
+```
+
+## Project Structure
+
+```
+ragu/
+├── app/
+│   ├── api/
+│   │   ├── routes/
+│   │   │   ├── chat.py
+│   │   │   ├── collections.py
+│   │   │   └── documents.py
+│   │   └── api.py
+│   ├── core/
+│   │   └── config.py
+│   ├── db/
+│   │   └── chroma_client.py
+│   ├── models/
+│   │   └── schemas.py
+│   ├── services/
+│   │   └── llm_service.py
+│   ├── utils/
+│   │   └── document_processor.py
+│   └── main.py
+├── chroma_db/
+├── .env
+├── .gitignore
+├── README.md
+└── requirements.txt
+```
+
+## License
+
+MIT
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
