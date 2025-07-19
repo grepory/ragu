@@ -526,8 +526,11 @@
                 const collectionDocuments = document.getElementById('collection-documents');
                 
                 // Show collections list and hide documents view
-                collectionsList.style.display = 'block';
+                collectionsList.style.display = '';  // Remove inline style to let CSS take over
                 collectionDocuments.style.display = 'none';
+                
+                // Refresh the collections list to ensure consistent styling
+                loadCollectionsList();
             });
             
             // Delete document function

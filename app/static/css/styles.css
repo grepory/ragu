@@ -192,6 +192,8 @@ main {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+    margin: 0;
+    padding: 0;
 }
 
 .collection-item {
@@ -202,6 +204,7 @@ main {
     transition: all 0.2s ease;
     position: relative;
     cursor: pointer;
+    margin: 0;
 }
 
 .collection-item:hover {
