@@ -21,6 +21,7 @@ router = APIRouter()
 async def upload_document(
     file: UploadFile = File(...),
     collection_name: str = Form(...),
+    tags: Optional[str] = Form(None),
     additional_metadata: Optional[str] = Form(None)
 ):
     """Upload a document to the vector database.
@@ -28,6 +29,7 @@ async def upload_document(
     Args:
         file: Document file
         collection_name: Name of the collection to add the document to
+        tags: Optional comma-separated list of tags (e.g., "personal,house,important")
         additional_metadata: Optional JSON string with additional metadata
         
     Returns:
@@ -51,6 +53,11 @@ async def upload_document(
                     detail="Invalid JSON in additional_metadata"
                 )
         
+        # Parse tags if provided
+        tag_list = None
+        if tags:
+            tag_list = [tag.strip() for tag in tags.split(',') if tag.strip()]
+        
         # Read file content
         file_content = await file.read()
         
@@ -64,6 +71,9 @@ async def upload_document(
             # Add additional metadata to each chunk
             for metadata in metadatas:
                 metadata.update(metadata_dict)
+                # Add tags if provided
+                if tag_list:
+                    metadata["tags"] = tag_list
             
             # Add to vector database
             chroma_client.add_documents(
@@ -118,6 +128,11 @@ async def add_text(text_input: TextInput):
         if text_input.metadata:
             for metadata in metadatas:
                 metadata.update(text_input.metadata)
+        
+        # Add tags if provided
+        if text_input.tags:
+            for metadata in metadatas:
+                metadata["tags"] = text_input.tags
         
         # Add to vector database
         chroma_client.add_documents(
@@ -183,8 +198,9 @@ async def get_document(collection_name: str, document_id: str):
                 "chunk": metadata.get("chunk"),
                 "total_chunks": metadata.get("total_chunks"),
                 "page": metadata.get("page"),
+                "tags": metadata.get("tags"),
                 "additional_metadata": {k: v for k, v in metadata.items() 
-                                       if k not in ["source", "chunk", "total_chunks", "page"]}
+                                       if k not in ["source", "chunk", "total_chunks", "page", "tags"]}
             }
         )
     except HTTPException:

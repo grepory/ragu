@@ -27,6 +27,7 @@ class DocumentMetadata(BaseModel):
     chunk: Optional[int] = Field(None, description="Chunk number")
     total_chunks: Optional[int] = Field(None, description="Total number of chunks")
     page: Optional[int] = Field(None, description="Page number for PDF documents")
+    tags: Optional[List[str]] = Field(None, description="Tags associated with the document")
     additional_metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
 
 
@@ -47,6 +48,7 @@ class TextInput(BaseModel):
     """Schema for text input."""
     text: str = Field(..., description="Text content to process")
     collection_name: str = Field(..., description="Name of the collection to add the text to")
+    tags: Optional[List[str]] = Field(None, description="Tags associated with the document")
     metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
 
 

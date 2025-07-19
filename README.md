@@ -5,6 +5,7 @@ RAGU is a complete RAG (Retrieval-Augmented Generation) management and interroga
 ## Features
 
 - **Document Management**: Upload, process, and manage documents in vector collections
+- **Document Tagging**: Add tags to documents for better organization and filtering
 - **Vector Database**: ChromaDB integration for efficient semantic search
 - **LLM Integration**: Support for multiple LLM providers:
   - Ollama with local or remote models (including nomic-embed-text)
@@ -120,8 +121,11 @@ Content-Type: multipart/form-data
 
 file: [file]
 collection_name: my_collection
+tags: personal,house,important
 additional_metadata: {"source": "website", "author": "John Doe"}
 ```
+
+The `tags` parameter is optional and should be a comma-separated list of tags to associate with the document.
 
 #### Add Text Directly
 
@@ -132,9 +136,12 @@ Content-Type: application/json
 {
   "text": "This is some text to add to the vector database.",
   "collection_name": "my_collection",
+  "tags": ["personal", "notes", "important"],
   "metadata": {"source": "direct_input", "author": "Jane Smith"}
 }
 ```
+
+The `tags` parameter is optional and should be an array of strings representing tags to associate with the document.
 
 #### Get Document
 
@@ -157,9 +164,14 @@ Content-Type: application/json
 {
   "collection_name": "my_collection",
   "query_text": "What is retrieval-augmented generation?",
-  "n_results": 5
+  "n_results": 5,
+  "where": {
+    "tags": {"$in": ["personal", "important"]}
+  }
 }
 ```
+
+The `where` parameter is optional and can be used to filter documents by metadata fields, including tags. In the example above, the query will only return documents that have either the "personal" or "important" tag. You can use other operators like `$eq` for exact match or `$contains` for substring match.
 
 ### Chat API
 
@@ -284,9 +296,11 @@ def create_collection(name, description=None):
     return response.json()
 
 # Upload a document
-def upload_document(file_path, collection_name, metadata=None):
+def upload_document(file_path, collection_name, tags=None, metadata=None):
     files = {"file": open(file_path, "rb")}
     data = {"collection_name": collection_name}
+    if tags:
+        data["tags"] = ",".join(tags)
     if metadata:
         data["additional_metadata"] = json.dumps(metadata)
     
@@ -298,14 +312,20 @@ def upload_document(file_path, collection_name, metadata=None):
     return response.json()
 
 # Query documents
-def query_documents(collection_name, query_text, n_results=5):
+def query_documents(collection_name, query_text, n_results=5, tags=None):
+    query_data = {
+        "collection_name": collection_name,
+        "query_text": query_text,
+        "n_results": n_results
+    }
+    
+    # Add tag filtering if specified
+    if tags:
+        query_data["where"] = {"tags": {"$in": tags}}
+    
     response = requests.post(
         f"{BASE_URL}/documents/query",
-        json={
-            "collection_name": collection_name,
-            "query_text": query_text,
-            "n_results": n_results
-        }
+        json=query_data
     )
     return response.json()
 
@@ -351,11 +371,30 @@ if __name__ == "__main__":
     # Create a collection
     create_collection("my_docs", "My documents collection")
     
-    # Upload a document
-    upload_document("path/to/document.pdf", "my_docs", {"source": "local"})
+    # Upload a document with tags
+    upload_document(
+        "path/to/document.pdf", 
+        "my_docs", 
+        tags=["house", "important", "insurance"],
+        metadata={"source": "local", "author": "Insurance Company"}
+    )
     
-    # Query documents
+    # Upload another document with different tags
+    upload_document(
+        "path/to/another_document.pdf", 
+        "my_docs", 
+        tags=["personal", "important", "legal"],
+        metadata={"source": "local", "author": "Law Firm"}
+    )
+    
+    # Query documents without tag filtering
     results = query_documents("my_docs", "What is RAG?")
+    
+    # Query documents with tag filtering (only "house" tagged documents)
+    house_results = query_documents("my_docs", "What is RAG?", tags=["house"])
+    
+    # Query documents with multiple tag filtering (documents tagged as either "important" or "personal")
+    important_results = query_documents("my_docs", "What is RAG?", tags=["important", "personal"])
     
     # Chat with WebSocket
     asyncio.run(chat_websocket("my_docs", "Explain RAG in simple terms."))
