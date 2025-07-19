@@ -256,7 +256,7 @@ main {
 
 /* Upload Progress Styling */
 .upload-progress-area {
-    background-color: #f8f9fa;
+    background-color: var(--oxford-stone);
     border: 1px solid #dee2e6;
     border-radius: 0.5rem;
     padding: 1rem;
@@ -265,7 +265,7 @@ main {
 
 .upload-progress-header h6 {
     margin: 0;
-    color: #495057;
+    color: var(--oxford-stone);
     font-weight: 600;
 }
 
@@ -280,7 +280,7 @@ main {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background-color: white;
+    background-color: var(--oxford-stone);
     border: 1px solid #e9ecef;
     border-radius: 0.25rem;
     padding: 0.75rem;
@@ -295,7 +295,7 @@ main {
 
 .file-name {
     font-weight: 500;
-    color: #495057;
+    color: #000;
 }
 
 .collection-badge {
@@ -321,7 +321,7 @@ main {
 /* Collection uploading state */
 .collection-item.uploading {
     border-color: #007bff;
-    background-color: rgba(0, 123, 255, 0.05);
+    background-color: var(--oxford-stone);
 }
 
 .collection-item.uploading .upload-overlay {
@@ -334,8 +334,8 @@ main {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 123, 255, 0.8);
-    color: white;
+    background-color: var(--oxford-stone);
+    color: #000;
     display: flex;
     flex-direction: column;
     align-items: center;
