@@ -43,17 +43,30 @@ const ModelQueryComponent = {
                 
                 <div v-else class="conversation-list">
                     <div v-for="conversation in conversations" :key="conversation.id" 
-                         class="conversation-item p-3 mb-2" 
-                         @click="selectConversation(conversation.id)">
-                        <div class="conversation-title">
-                            <i class="bi bi-chat-text me-2"></i>
-                            {{ conversation.title }}
+                         class="conversation-item p-3 mb-2">
+                        <div class="conversation-content" @click="selectConversation(conversation.id)">
+                            <div class="conversation-title">
+                                <i class="bi bi-chat-text me-2"></i>
+                                {{ conversation.title }}
+                            </div>
+                            <div class="conversation-meta">
+                                <small class="text-muted">
+                                    {{ new Date(conversation.updated_at).toLocaleString() }}
+                                    <span class="ms-2">{{ conversation.messages.length }} messages</span>
+                                </small>
+                            </div>
                         </div>
-                        <div class="conversation-meta">
-                            <small class="text-muted">
-                                {{ new Date(conversation.updated_at).toLocaleString() }}
-                                <span class="ms-2">{{ conversation.messages.length }} messages</span>
-                            </small>
+                        <div class="conversation-actions">
+                            <button class="btn btn-sm btn-outline-secondary me-1" 
+                                    @click.stop="renameConversation(conversation)"
+                                    title="Rename conversation">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" 
+                                    @click.stop="confirmDeleteConversation(conversation)"
+                                    title="Delete conversation">
+                                <i class="bi bi-trash"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -502,6 +515,82 @@ const ModelQueryComponent = {
             }
         };
         
+        // Rename a conversation
+        const renameConversation = async (conversation) => {
+            // Prompt for new title
+            const newTitle = prompt('Enter a new title for the conversation:', conversation.title);
+            
+            // If user cancels or enters an empty title, do nothing
+            if (!newTitle || newTitle.trim() === '') return;
+            
+            try {
+                // Send request to update the conversation
+                const response = await fetch(`/api/v1/conversations/${conversation.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        title: newTitle.trim()
+                    })
+                });
+                
+                if (response.ok) {
+                    // Update the conversation in the list
+                    const updatedConversation = await response.json();
+                    const index = conversations.value.findIndex(c => c.id === conversation.id);
+                    if (index !== -1) {
+                        conversations.value[index] = updatedConversation;
+                    }
+                    
+                    // If this is the current conversation, update the title in the header
+                    if (currentConversationId.value === conversation.id) {
+                        // The title will be updated automatically through the conversations array
+                    }
+                } else {
+                    const errorData = await response.json();
+                    error.value = `Failed to rename conversation: ${errorData.detail || 'Unknown error'}`;
+                }
+            } catch (err) {
+                console.error('Error renaming conversation:', err);
+                error.value = `Error renaming conversation: ${err.message}`;
+            }
+        };
+        
+        // Confirm deletion of a conversation
+        const confirmDeleteConversation = (conversation) => {
+            if (confirm(`Are you sure you want to delete the conversation "${conversation.title}"? This action cannot be undone.`)) {
+                deleteConversation(conversation.id);
+            }
+        };
+        
+        // Delete a conversation
+        const deleteConversation = async (conversationId) => {
+            try {
+                // Send request to delete the conversation
+                const response = await fetch(`/api/v1/conversations/${conversationId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    // Remove the conversation from the list
+                    conversations.value = conversations.value.filter(c => c.id !== conversationId);
+                    
+                    // If this is the current conversation, clear it
+                    if (currentConversationId.value === conversationId) {
+                        currentConversationId.value = null;
+                        conversationHistory.value = [];
+                    }
+                } else {
+                    const errorData = await response.json();
+                    error.value = `Failed to delete conversation: ${errorData.detail || 'Unknown error'}`;
+                }
+            } catch (err) {
+                console.error('Error deleting conversation:', err);
+                error.value = `Error deleting conversation: ${err.message}`;
+            }
+        };
+        
         return {
             collections,
             selectedCollection,
@@ -524,7 +613,9 @@ const ModelQueryComponent = {
             fetchConversations,
             selectConversation,
             startNewConversation,
-            toggleConversationList
+            toggleConversationList,
+            renameConversation,
+            confirmDeleteConversation
         };
     }
 };

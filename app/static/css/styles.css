@@ -257,14 +257,38 @@ main {
 .conversation-item {
     background-color: #E2D5C1;
     border-radius: 8px;
-    cursor: pointer;
     transition: all 0.2s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .conversation-item:hover {
     background-color: #DCD7C6;
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.conversation-content {
+    flex: 1;
+    cursor: pointer;
+    padding-right: 10px;
+}
+
+.conversation-actions {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.conversation-actions button {
+    opacity: 0.7;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.conversation-actions button:hover {
+    opacity: 1;
+    transform: scale(1.1);
 }
 
 .conversation-item .conversation-title {
