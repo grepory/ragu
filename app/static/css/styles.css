@@ -1,0 +1,118 @@
+/* Custom styles for RAGU front-end */
+
+/* General styles */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+}
+
+h1 {
+    color: #343a40;
+}
+
+/* PDF Upload Component */
+.pdf-upload-area {
+    border: 2px dashed #6c757d;
+    border-radius: 5px;
+    padding: 2rem;
+    text-align: center;
+    background-color: #f8f9fa;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.pdf-upload-area:hover, .pdf-upload-area.drag-active {
+    border-color: #007bff;
+    background-color: #e9ecef;
+}
+
+.pdf-upload-area.drag-active {
+    background-color: #e2f3ff;
+}
+
+.pdf-upload-icon {
+    font-size: 3rem;
+    color: #6c757d;
+    margin-bottom: 1rem;
+}
+
+.pdf-upload-text {
+    margin-bottom: 1rem;
+}
+
+.pdf-file-list {
+    margin-top: 1rem;
+    text-align: left;
+}
+
+.pdf-file-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.pdf-file-name {
+    flex-grow: 1;
+    margin-right: 1rem;
+}
+
+.pdf-file-remove {
+    color: #dc3545;
+    cursor: pointer;
+}
+
+/* Model Selection Component */
+.model-selection {
+    margin-bottom: 1.5rem;
+}
+
+.model-selection label {
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+.query-input {
+    margin-bottom: 1.5rem;
+}
+
+.query-input textarea {
+    min-height: 100px;
+}
+
+/* Results Container */
+#results-container {
+    min-height: 200px;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.result-item {
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.result-source {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-top: 0.5rem;
+}
+
+/* Loading indicator */
+.loading-spinner {
+    display: inline-block;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 0.25rem solid rgba(0, 123, 255, 0.25);
+    border-right-color: #007bff;
+    border-radius: 50%;
+    animation: spinner 0.75s linear infinite;
+}
+
+@keyframes spinner {
+    to {
+        transform: rotate(360deg);
+    }
+}
