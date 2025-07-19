@@ -36,9 +36,6 @@ const ModelQueryComponent = {
                 <div v-else-if="conversations.length === 0" class="text-center text-muted p-4">
                     <i class="bi bi-chat-square-text fs-2"></i>
                     <p class="mt-2">No conversations yet</p>
-                    <button class="btn btn-primary mt-2" @click="startNewConversation">
-                        Start a new conversation
-                    </button>
                 </div>
                 
                 <div v-else class="conversation-list">

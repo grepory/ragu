@@ -247,6 +247,7 @@ main {
     padding: 15px;
     background-color: #E2D5C1;
     border-bottom: 1px solid #dee2e6;
+    border-radius: 0.5rem;
 }
 
 .conversation-list {
