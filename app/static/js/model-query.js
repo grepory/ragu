@@ -21,123 +21,130 @@ const ModelQueryComponent = {
         <div class="model-query-component">
             <h3><i class="bi bi-chat-left-text me-2"></i>Chat with Documents</h3>
             
-            <!-- Collection selection -->
-            <div class="mb-3 model-selection">
-                <label for="collection-select" class="form-label">
-                    <i class="bi bi-collection me-1"></i> Collection
-                </label>
-                <div class="input-group">
-                    <select 
-                        id="collection-select"
-                        class="form-select"
-                        v-model="selectedCollection"
-                    >
-                        <option value="">Select a collection</option>
-                        <option v-for="collection in collections" :key="collection" :value="collection">
-                            {{ collection }}
-                        </option>
-                    </select>
-                    <button 
-                        class="btn btn-outline-secondary" 
-                        type="button"
-                        @click="createCollection"
-                    >
-                        New
-                    </button>
-                </div>
-                <div class="form-text" v-if="collections.length === 0">
-                    No collections found. Please upload documents first.
-                </div>
-            </div>
-            
-            <!-- Model selection -->
-            <div class="mb-3 model-selection">
-                <label for="model-select" class="form-label">
-                    <i class="bi bi-cpu me-1"></i> Model
-                </label>
-                <select 
-                    id="model-select"
-                    class="form-select"
-                    v-model="selectedModel"
-                >
-                    <option value="">Default Model</option>
-                    <optgroup label="Ollama Models">
-                        <option v-for="model in models.filter(m => m.value.startsWith('ollama'))" :key="model.value" :value="model.value">
-                            {{ model.label }}
-                        </option>
-                    </optgroup>
-                    <optgroup label="Anthropic Models">
-                        <option v-for="model in models.filter(m => m.value.startsWith('anthropic'))" :key="model.value" :value="model.value">
-                            {{ model.label }}
-                        </option>
-                    </optgroup>
-                    <optgroup label="OpenAI Models">
-                        <option v-for="model in models.filter(m => m.value.startsWith('openai'))" :key="model.value" :value="model.value">
-                            {{ model.label }}
-                        </option>
-                    </optgroup>
-                </select>
-            </div>
-            
-            <!-- Conversation history -->
-            <div v-if="conversationHistory.length > 0" class="mb-3 conversation-history">
-                <h5><i class="bi bi-chat-dots me-2"></i>Conversation</h5>
-                <div class="conversation-container p-3 border rounded bg-light" style="max-height: 300px; overflow-y: auto;">
-                    <div v-for="(message, index) in conversationHistory" :key="index" 
-                         :class="['message mb-2 p-2 rounded', message.role === 'user' ? 'user-message text-end' : 'assistant-message']">
-                        <div class="message-header mb-1">
-                            <small class="fw-bold">
-                                <i :class="['bi me-1', message.role === 'user' ? 'bi-person-circle' : 'bi-robot']"></i>
-                                {{ message.role === 'user' ? 'You' : 'Assistant' }}
-                            </small>
+            <!-- Conversation history - Primary visual element -->
+            <div class="conversation-wrapper">
+                <div v-if="conversationHistory.length > 0" class="conversation-history">
+                    <div class="conversation-container p-3 border rounded bg-light">
+                        <div v-for="(message, index) in conversationHistory" :key="index" 
+                             :class="['message mb-2 p-2 rounded', message.role === 'user' ? 'user-message text-end' : 'assistant-message']">
+                            <div class="message-header mb-1">
+                                <small class="fw-bold">
+                                    <i :class="['bi me-1', message.role === 'user' ? 'bi-person-circle' : 'bi-robot']"></i>
+                                    {{ message.role === 'user' ? 'You' : 'Assistant' }}
+                                </small>
+                            </div>
+                            <div class="message-content">
+                                {{ message.content }}
+                            </div>
                         </div>
-                        <div class="message-content">
-                            {{ message.content }}
-                        </div>
+                    </div>
+                </div>
+                <div v-else class="empty-conversation-placeholder">
+                    <div class="text-center text-muted p-5">
+                        <i class="bi bi-chat-square-text fs-1"></i>
+                        <p class="mt-3">Your conversation will appear here</p>
                     </div>
                 </div>
             </div>
             
-            <!-- Query input -->
-            <div class="mb-3 query-input">
-                <label for="query-textarea" class="form-label">
-                    <i class="bi bi-question-circle me-1"></i> Your Message
-                </label>
-                <textarea
-                    id="query-textarea"
-                    class="form-control"
-                    v-model="queryText"
-                    placeholder="Type your message here..."
-                    rows="3"
-                    @keydown.enter.prevent="handleEnterKey"
-                ></textarea>
-                <div class="form-text">
-                    Ask a question about the documents in the selected collection. Press Enter to send.
+            <!-- Input area fixed at bottom -->
+            <div class="chat-input-area">
+                <!-- Small dropdowns for model and collection selection -->
+                <div class="dropdowns-container">
+                    <!-- Collection selection -->
+                    <div class="dropdown-item collection-dropdown">
+                        <label for="collection-select" class="form-label small-label">
+                            <i class="bi bi-collection me-1"></i> Collection
+                        </label>
+                        <div class="input-group input-group-sm">
+                            <select 
+                                id="collection-select"
+                                class="form-select form-select-sm"
+                                v-model="selectedCollection"
+                            >
+                                <option value="">Select a collection</option>
+                                <option v-for="collection in collections" :key="collection" :value="collection">
+                                    {{ collection }}
+                                </option>
+                            </select>
+                            <button 
+                                class="btn btn-outline-secondary btn-sm" 
+                                type="button"
+                                @click="createCollection"
+                            >
+                                New
+                            </button>
+                        </div>
+                        <div class="form-text small-text" v-if="collections.length === 0">
+                            No collections found. Please upload documents first.
+                        </div>
+                    </div>
+                    
+                    <!-- Model selection -->
+                    <div class="dropdown-item model-dropdown">
+                        <label for="model-select" class="form-label small-label">
+                            <i class="bi bi-cpu me-1"></i> Model
+                        </label>
+                        <select 
+                            id="model-select"
+                            class="form-select form-select-sm"
+                            v-model="selectedModel"
+                        >
+                            <option value="">Default Model</option>
+                            <optgroup label="Ollama Models">
+                                <option v-for="model in models.filter(m => m.value.startsWith('ollama'))" :key="model.value" :value="model.value">
+                                    {{ model.label }}
+                                </option>
+                            </optgroup>
+                            <optgroup label="Anthropic Models">
+                                <option v-for="model in models.filter(m => m.value.startsWith('anthropic'))" :key="model.value" :value="model.value">
+                                    {{ model.label }}
+                                </option>
+                            </optgroup>
+                            <optgroup label="OpenAI Models">
+                                <option v-for="model in models.filter(m => m.value.startsWith('openai'))" :key="model.value" :value="model.value">
+                                    {{ model.label }}
+                                </option>
+                            </optgroup>
+                        </select>
+                    </div>
                 </div>
-            </div>
-            
-            <!-- Submit button -->
-            <button 
-                class="btn btn-primary"
-                @click="submitQuery"
-                :disabled="isLoading || !canSubmit"
-            >
-                <i v-if="!isLoading" class="bi bi-send me-1"></i>
-                <span v-if="isLoading" class="loading-spinner me-2"></span>
-                {{ isLoading ? 'Processing...' : 'Send Message' }}
-            </button>
-            
-            <!-- Error message -->
-            <div v-if="error" class="alert alert-danger mt-3">
-                {{ error }}
-            </div>
-            
-            <!-- Model info -->
-            <div class="mt-3 text-end">
-                <small class="text-muted">
-                    <i class="bi bi-info-circle me-1"></i>
-                    Model used: {{ selectedModel || 'Default model' }}
-                </small>
+                
+                <!-- Query input -->
+                <div class="query-input">
+                    <textarea
+                        id="query-textarea"
+                        class="form-control"
+                        v-model="queryText"
+                        placeholder="Type your message here..."
+                        rows="2"
+                        @keydown.enter.prevent="handleEnterKey"
+                    ></textarea>
+                    
+                    <!-- Submit button -->
+                    <button 
+                        class="btn btn-primary send-button"
+                        @click="submitQuery"
+                        :disabled="isLoading || !canSubmit"
+                    >
+                        <i v-if="!isLoading" class="bi bi-send"></i>
+                        <span v-if="isLoading" class="loading-spinner"></span>
+                        <span class="button-text">{{ isLoading ? 'Processing...' : 'Send' }}</span>
+                    </button>
+                </div>
+                
+                <!-- Error message -->
+                <div v-if="error" class="alert alert-danger mt-2 mb-0 py-2 small">
+                    {{ error }}
+                </div>
+                
+                <!-- Model info -->
+                <div class="model-info text-end">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Model: {{ selectedModel || 'Default' }}
+                    </small>
+                </div>
             </div>
         </div>
     `,
@@ -284,7 +291,7 @@ const ModelQueryComponent = {
                 if (container) {
                     container.scrollTop = container.scrollHeight;
                 }
-            }, 0);
+            }, 50);
             
             try {
                 // Prepare request data
@@ -328,7 +335,7 @@ const ModelQueryComponent = {
                         if (container) {
                             container.scrollTop = container.scrollHeight;
                         }
-                    }, 0);
+                    }, 50);
                     
                     // Clear the results container (we're now using the conversation history)
                     const resultsContainer = document.getElementById('results-container');

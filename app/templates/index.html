@@ -81,21 +81,42 @@
             const chatInterface = document.getElementById('chat-interface');
             const fileManagement = document.getElementById('file-management');
             
+            // Function to set active tab
+            function setActiveTab(tabName) {
+                // Save active tab to localStorage
+                localStorage.setItem('activeTab', tabName);
+                
+                if (tabName === 'chat') {
+                    chatMenuItem.classList.add('active');
+                    filesMenuItem.classList.remove('active');
+                    chatInterface.classList.add('active');
+                    fileManagement.classList.remove('active');
+                } else if (tabName === 'files') {
+                    filesMenuItem.classList.add('active');
+                    chatMenuItem.classList.remove('active');
+                    fileManagement.classList.add('active');
+                    chatInterface.classList.remove('active');
+                }
+            }
+            
             // Chat menu item click handler
             chatMenuItem.addEventListener('click', function() {
-                chatMenuItem.classList.add('active');
-                filesMenuItem.classList.remove('active');
-                chatInterface.classList.add('active');
-                fileManagement.classList.remove('active');
+                setActiveTab('chat');
             });
             
             // Files menu item click handler
             filesMenuItem.addEventListener('click', function() {
-                filesMenuItem.classList.add('active');
-                chatMenuItem.classList.remove('active');
-                fileManagement.classList.add('active');
-                chatInterface.classList.remove('active');
+                setActiveTab('files');
             });
+            
+            // Check localStorage for active tab on page load
+            const activeTab = localStorage.getItem('activeTab');
+            if (activeTab === 'files') {
+                setActiveTab('files');
+            } else {
+                // Default to chat tab if no saved preference or 'chat' is saved
+                setActiveTab('chat');
+            }
         });
     </script>
 </body>
