@@ -216,7 +216,8 @@ main {
 }
 
 .empty-conversation-placeholder {
-    height: 100%;
+    height: 60%; /* Reduce height to leave space for chat input */
+    max-height: 400px; /* Add max height to prevent it from being too tall */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -231,7 +232,7 @@ main {
     top: 0;
     left: 0;
     right: 0;
-    bottom: 0;
+    bottom: 180px; /* Don't cover the chat input area */
     background-color: var(--oxford-stone);
     z-index: 1000;
     display: flex;
