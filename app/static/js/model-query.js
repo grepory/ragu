@@ -48,6 +48,8 @@ const ModelQueryComponent = {
                             </div>
                             <div class="conversation-meta">
                                 <small class="text-muted">
+                                    <i class="bi bi-collection me-1"></i>{{ conversation.collection_name }}
+                                    <span class="mx-2">•</span>
                                     {{ new Date(conversation.updated_at).toLocaleString() }}
                                     <span class="ms-2">{{ conversation.messages.length }} messages</span>
                                 </small>
@@ -77,6 +79,9 @@ const ModelQueryComponent = {
                     </button>
                     <span v-if="currentConversationId" class="conversation-title">
                         {{ conversations.find(c => c.id === currentConversationId)?.title || 'Current Conversation' }}
+                        <small class="text-muted ms-2">
+                            <i class="bi bi-collection me-1"></i>{{ selectedCollection }}
+                        </small>
                     </span>
                 </div>
                 
@@ -365,7 +370,13 @@ const ModelQueryComponent = {
                     
                     // Set the collection and model if available
                     if (conversation.collection_name) {
+                        const previousCollection = selectedCollection.value;
                         selectedCollection.value = conversation.collection_name;
+
+                        // Show a brief message if the collection changed
+                        if (previousCollection && previousCollection !== conversation.collection_name) {
+                            console.log(`Switched to collection: ${conversation.collection_name}`);
+                        }
                     }
                     
                     if (conversation.model) {
