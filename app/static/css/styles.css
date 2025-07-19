@@ -115,14 +115,14 @@ main {
     border-radius: 5px;
     padding: 2rem;
     text-align: center;
-    background-color: #CBBAA0;
+    background-color: #E2D5C1;
     transition: all 0.3s ease;
     cursor: pointer;
 }
 
 .pdf-upload-area:hover, .pdf-upload-area.drag-active {
-    border-color: #007bff;
-    background-color: #CBBAA0;
+    border-color: #DCD7C6;
+    background-color: #E2D5C1;
 }
 
 .pdf-upload-area.drag-active {
@@ -227,8 +227,20 @@ main {
     background-color: #C4B49D;
 }
 
+.form-select:focus {
+    background-color: #C4B49D;
+    box-shadow: 0 0 0 0.2rem rgba(92, 82, 68, 0.25);
+    border-color: #DCD7C6;
+}
+
 .form-control {
-    background-color: #CBBAA0;
+    background-color: #E2D5C1;
+}
+
+.form-control:focus {
+    background-color: #E2D5C1;
+    box-shadow: 0 0 0 0.2rem rgba(92, 82, 68, 0.25);
+    border-color: #DCD7C6;
 }
 
 .small-label {
@@ -252,7 +264,14 @@ main {
     flex: 1;
     resize: none;
     min-height: 50px;
-    background-color: #CBBAA0;
+    background-color: #E2D5C1;
+}
+
+.query-input textarea:focus {
+    background-color: #E2D5C1;
+    box-shadow: 0 0 0 0.2rem rgba(92, 82, 68, 0.25);
+    border-color: #DCD7C6;
+    outline: none;
 }
 
 .send-button {
