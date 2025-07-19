@@ -59,13 +59,18 @@ class DocumentProcessor:
             for i, chunk in enumerate(chunks):
                 # Create metadata for each chunk
                 metadata = {
-                    "source": file_name,
+                    "source": file_name,  # This should be the original filename
+                    "original_filename": file_name,  # Add explicit field for original filename
                     "chunk": i,
                     "total_chunks": len(chunks),
                 }
-                # Add any existing metadata from the document
-                if hasattr(chunk, 'metadata'):
-                    metadata.update(chunk.metadata)
+                
+                # Add any existing metadata from the document (but don't override source)
+                if hasattr(chunk, 'metadata') and chunk.metadata:
+                    for key, value in chunk.metadata.items():
+                        # Don't let document loaders override our source filename
+                        if key not in ['source', 'original_filename']:
+                            metadata[key] = value
                 
                 metadatas.append(metadata)
                 # Generate a unique ID for each chunk

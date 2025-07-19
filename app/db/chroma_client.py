@@ -171,6 +171,46 @@ class ChromaClient:
         collection = self.get_or_create_collection(collection_name)
         collection.delete(ids=[document_id])
     
+    def delete_documents_by_source(
+        self,
+        collection_name: str,
+        source: str
+    ) -> int:
+        """Delete all document chunks by source filename.
+        
+        Args:
+            collection_name: Name of the collection
+            source: Source filename to delete (can be full path or just filename)
+            
+        Returns:
+            Number of chunks deleted
+        """
+        collection = self.get_or_create_collection(collection_name)
+        
+        # First try exact match
+        result = collection.get(where={"source": source})
+        
+        # If no exact match, get all documents and find those where source ends with the filename
+        if not result or not result.get("ids"):
+            all_docs = collection.get()
+            if all_docs and all_docs.get("ids"):
+                matching_ids = []
+                for i, doc_id in enumerate(all_docs["ids"]):
+                    doc_source = all_docs["metadatas"][i].get("source", "")
+                    # Check if source ends with the filename (handles temp paths)
+                    if doc_source.endswith(source) or doc_source.endswith("/" + source):
+                        matching_ids.append(doc_id)
+                
+                if matching_ids:
+                    collection.delete(ids=matching_ids)
+                    return len(matching_ids)
+        else:
+            # Delete all matching documents
+            collection.delete(ids=result["ids"])
+            return len(result["ids"])
+        
+        return 0
+    
     def get_collection_documents(
         self,
         collection_name: str,

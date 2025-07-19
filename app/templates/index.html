@@ -255,22 +255,62 @@
                         if (documents.length === 0) {
                             documentsList.innerHTML = '<div class="text-muted text-center">No documents found in this collection.</div>';
                         } else {
-                            documentsList.innerHTML = documents.map(doc => `
-                                <div class="document-item">
-                                    <div class="document-name">
-                                        <i class="bi bi-file-earmark-text me-2"></i>${doc.metadata.source}
-                                    </div>
-                                    <div class="document-info">
-                                        ${doc.metadata.total_chunks} chunks
-                                        ${doc.metadata.tags && doc.metadata.tags.length > 0 ? `• ${doc.metadata.tags.length} tags` : ''}
-                                    </div>
-                                    ${doc.metadata.tags && doc.metadata.tags.length > 0 ? `
-                                        <div class="document-tags">
-                                            ${doc.metadata.tags.map(tag => `<span class="document-tag">${tag}</span>`).join('')}
+                            documentsList.innerHTML = documents.map(doc => {
+                                // Clean up the filename display
+                                let displayName = doc.metadata.source;
+                                
+                                // If it looks like a temp file path, extract just the filename
+                                if (displayName.includes('/')) {
+                                    displayName = displayName.split('/').pop();
+                                }
+                                
+                                // If it still has temp file characteristics, try to clean it up
+                                if (displayName.match(/^tmp[a-zA-Z0-9_]+/)) {
+                                    // Try to extract file extension and create a meaningful name
+                                    const extension = displayName.match(/\.[a-zA-Z0-9]+$/);
+                                    if (extension) {
+                                        displayName = `Document${extension[0]}`;
+                                    } else {
+                                        displayName = 'Document';
+                                    }
+                                }
+                                
+                                return `
+                                    <div class="document-item">
+                                        <div class="document-content">
+                                            <div class="document-name">
+                                                <i class="bi bi-file-earmark-text me-2"></i>${displayName}
+                                            </div>
+                                            <div class="document-info">
+                                                ${doc.metadata.total_chunks} chunks
+                                                ${doc.metadata.tags && doc.metadata.tags.length > 0 ? `• ${doc.metadata.tags.length} tags` : ''}
+                                            </div>
+                                            ${doc.metadata.tags && doc.metadata.tags.length > 0 ? `
+                                                <div class="document-tags">
+                                                    ${doc.metadata.tags.map(tag => `<span class="document-tag">${tag}</span>`).join('')}
+                                                </div>
+                                            ` : ''}
                                         </div>
-                                    ` : ''}
-                                </div>
-                            `).join('');
+                                        <div class="document-actions">
+                                            <button class="btn btn-outline-danger btn-sm delete-document-btn" 
+                                                    data-collection="${collectionName}" 
+                                                    data-source="${doc.metadata.source}">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('');
+                            
+                            // Add click event listeners to delete buttons
+                            document.querySelectorAll('.delete-document-btn').forEach(button => {
+                                button.addEventListener('click', function(e) {
+                                    e.stopPropagation();
+                                    const collection = this.getAttribute('data-collection');
+                                    const source = this.getAttribute('data-source');
+                                    deleteDocument(collection, source);
+                                });
+                            });
                         }
                     } else {
                         documentsList.innerHTML = '<div class="text-danger">Failed to load documents</div>';
@@ -291,6 +331,40 @@
                 collectionsList.style.display = 'block';
                 collectionDocuments.style.display = 'none';
             });
+            
+            // Delete document function
+            async function deleteDocument(collectionName, sourceFilename) {
+                // Show confirmation dialog
+                const confirmDelete = confirm(`Are you sure you want to delete "${sourceFilename}" from collection "${collectionName}"?\n\nThis action cannot be undone and will remove all chunks of this document.`);
+                
+                if (!confirmDelete) {
+                    return;
+                }
+                
+                try {
+                    // Create the API endpoint for deleting by source
+                    const response = await fetch(`/api/v1/documents/${collectionName}/by-source`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ source: sourceFilename })
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        alert(`Successfully deleted "${sourceFilename}". Removed ${result.chunks_deleted} chunks.`);
+                        // Refresh the documents list
+                        showCollectionDocuments(collectionName);
+                    } else {
+                        const errorData = await response.json();
+                        alert(`Failed to delete document: ${errorData.detail || 'Unknown error'}`);
+                    }
+                } catch (error) {
+                    console.error('Error deleting document:', error);
+                    alert(`Error deleting document: ${error.message}`);
+                }
+            }
             
             // Check localStorage for active tab on page load
             const activeTab = localStorage.getItem('activeTab');

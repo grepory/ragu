@@ -1,0 +1,5 @@
+This is a test document for testing deletion functionality.
+It contains multiple lines of text.
+This should be chunked and stored in ChromaDB.
+We will test if we can delete it properly.
+End of test document.

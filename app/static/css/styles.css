@@ -241,12 +241,42 @@ main {
     padding: 0.75rem;
     border: 1px solid #B8AD96;
     transition: all 0.2s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
 }
 
 .document-item:hover {
     background-color: #B8AD96;
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.document-content {
+    flex: 1;
+}
+
+.document-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    align-items: center;
+}
+
+.document-actions .delete-document-btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+    border: 1px solid #dc3545;
+    background-color: transparent;
+    color: #dc3545;
+    transition: all 0.2s ease;
+}
+
+.document-actions .delete-document-btn:hover {
+    background-color: #dc3545;
+    color: white;
+    transform: scale(1.05);
 }
 
 .document-name {

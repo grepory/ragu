@@ -45,6 +45,11 @@ class DocumentList(BaseModel):
     total: int = Field(..., description="Total number of documents")
 
 
+class DeleteDocumentRequest(BaseModel):
+    """Schema for delete document by source request."""
+    source: str = Field(..., description="Source filename to delete")
+
+
 class TextInput(BaseModel):
     """Schema for text input."""
     text: str = Field(..., description="Text content to process")

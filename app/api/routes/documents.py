@@ -9,7 +9,8 @@ from app.models.schemas import (
     TextInput,
     QueryRequest,
     QueryResponse,
-    QueryResult
+    QueryResult,
+    DeleteDocumentRequest
 )
 from app.db.chroma_client import chroma_client
 from app.utils.document_processor import document_processor
@@ -257,6 +258,67 @@ async def delete_document(collection_name: str, document_id: str):
         )
 
 
+@router.get("/debug/{collection_name}")
+async def debug_collection(collection_name: str):
+    """Debug endpoint to check raw ChromaDB data."""
+    try:
+        result = chroma_client.get_collection_documents(collection_name, limit=5)
+        return {
+            "raw_data": result,
+            "collection": collection_name
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@router.delete("/{collection_name}/by-source")
+async def delete_document_by_source(
+    collection_name: str,
+    request: DeleteDocumentRequest
+):
+    """Delete all chunks of a document by source filename.
+    
+    Args:
+        collection_name: Name of the collection
+        request: JSON body containing the source filename
+    """
+    try:
+        # Check if collection exists
+        collections = chroma_client.list_collections()
+        if collection_name not in collections:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Collection '{collection_name}' not found"
+            )
+        
+        # Extract source from request body
+        source = request.source
+        print(f"DEBUG: Attempting to delete source '{source}' from collection '{collection_name}'")
+        
+        # Delete all chunks of the document by source
+        chunks_deleted = chroma_client.delete_documents_by_source(collection_name, source)
+        print(f"DEBUG: Deleted {chunks_deleted} chunks")
+        
+        if chunks_deleted == 0:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No document found with source '{source}' in collection '{collection_name}'"
+            )
+        
+        return {
+            "status": "success",
+            "message": f"Deleted document '{source}' from collection '{collection_name}'",
+            "chunks_deleted": chunks_deleted
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to delete document: {str(e)}"
+        )
+
+
 @router.get("/{collection_name}", response_model=DocumentList)
 async def list_collection_documents(
     collection_name: str,
@@ -292,7 +354,18 @@ async def list_collection_documents(
                 text = result["documents"][i] if result.get("documents") else ""
                 metadata = result["metadatas"][i] if result.get("metadatas") else {}
                 
-                source = metadata.get("source", "unknown")
+                # Try to get the original filename first, fall back to source, then unknown
+                source = (
+                    metadata.get("original_filename") or 
+                    metadata.get("source") or 
+                    "unknown"
+                )
+                
+                # Clean up the source if it looks like a temp file path
+                if source.startswith('/') and 'tmp' in source.lower():
+                    # Extract just the filename part if it's a full path
+                    source = os.path.basename(source)
+                
                 chunk_num = metadata.get("chunk", 0)
                 
                 if source not in doc_sources:
