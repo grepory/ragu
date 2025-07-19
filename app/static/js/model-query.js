@@ -14,7 +14,7 @@ const availableModels = [
 ];
 
 // Create Vue app
-const { createApp, ref, onMounted, computed } = Vue;
+const { createApp, ref, onMounted, computed, watch } = Vue;
 
 const ModelQueryComponent = {
     template: `
@@ -26,16 +26,25 @@ const ModelQueryComponent = {
                 <label for="collection-select" class="form-label">
                     <i class="bi bi-collection me-1"></i> Collection
                 </label>
-                <select 
-                    id="collection-select"
-                    class="form-select"
-                    v-model="selectedCollection"
-                >
-                    <option value="">Select a collection</option>
-                    <option v-for="collection in collections" :key="collection" :value="collection">
-                        {{ collection }}
-                    </option>
-                </select>
+                <div class="input-group">
+                    <select 
+                        id="collection-select"
+                        class="form-select"
+                        v-model="selectedCollection"
+                    >
+                        <option value="">Select a collection</option>
+                        <option v-for="collection in collections" :key="collection" :value="collection">
+                            {{ collection }}
+                        </option>
+                    </select>
+                    <button 
+                        class="btn btn-outline-secondary" 
+                        type="button"
+                        @click="createCollection"
+                    >
+                        New
+                    </button>
+                </div>
                 <div class="form-text" v-if="collections.length === 0">
                     No collections found. Please upload documents first.
                 </div>
@@ -123,33 +132,12 @@ const ModelQueryComponent = {
                 {{ error }}
             </div>
             
-            <!-- Sources -->
-            <div v-if="lastSources && lastSources.length > 0" class="mt-4">
-                <h5><i class="bi bi-journal-text me-2"></i>Sources</h5>
-                <div class="sources-container p-3 border rounded bg-light">
-                    <ul class="list-group">
-                        <li v-for="(source, index) in lastSources" :key="index" class="list-group-item">
-                            <div>{{ source.text }}</div>
-                            <div class="result-source">
-                                <small>
-                                    <i class="bi bi-file-earmark me-1"></i>
-                                    {{ source.metadata.source || 'Unknown' }}
-                                    <span v-if="source.metadata.page">
-                                        <i class="bi bi-file-earmark-text ms-2 me-1"></i>
-                                        Page: {{ source.metadata.page }}
-                                    </span>
-                                </small>
-                            </div>
-                        </li>
-                    </ul>
-                </div>
-                
-                <div class="mt-3 text-end">
-                    <small class="text-muted">
-                        <i class="bi bi-info-circle me-1"></i>
-                        Model used: {{ selectedModel || 'Default model' }}
-                    </small>
-                </div>
+            <!-- Model info -->
+            <div class="mt-3 text-end">
+                <small class="text-muted">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Model used: {{ selectedModel || 'Default model' }}
+                </small>
             </div>
         </div>
     `,
@@ -166,14 +154,45 @@ const ModelQueryComponent = {
         const conversationHistory = ref([]);
         const lastSources = ref([]);
         
+        // Local storage keys for persistence
+        const STORAGE_KEY_COLLECTION = 'ragu_selected_collection';
+        const STORAGE_KEY_MODEL = 'ragu_selected_model';
+        
         // Computed properties
         const canSubmit = computed(() => {
             return selectedCollection.value && queryText.value.trim().length > 0;
         });
         
-        // Fetch collections on component mount
+        // Fetch collections on component mount and load saved preferences
         onMounted(async () => {
             await fetchCollections();
+            
+            // Load saved model preference
+            const savedModel = localStorage.getItem(STORAGE_KEY_MODEL);
+            if (savedModel) {
+                // Check if the saved model exists in available models
+                const modelExists = models.value.some(model => model.value === savedModel);
+                if (modelExists) {
+                    selectedModel.value = savedModel;
+                }
+            }
+            
+            // Note: We'll apply the saved collection after collections are loaded
+            // This happens in the fetchCollections function
+        });
+        
+        // Watch for changes to selectedCollection and save to localStorage
+        watch(selectedCollection, (newValue) => {
+            if (newValue) {
+                localStorage.setItem(STORAGE_KEY_COLLECTION, newValue);
+            }
+        });
+        
+        // Watch for changes to selectedModel and save to localStorage
+        watch(selectedModel, (newValue) => {
+            if (newValue) {
+                localStorage.setItem(STORAGE_KEY_MODEL, newValue);
+            }
         });
         
         // Fetch collections from API
@@ -183,8 +202,19 @@ const ModelQueryComponent = {
                 if (response.ok) {
                     const data = await response.json();
                     collections.value = data.collections || [];
+                    
+                    // Check if we have collections
                     if (data.collections && data.collections.length > 0) {
-                        selectedCollection.value = data.collections[0];
+                        // Try to load saved collection preference
+                        const savedCollection = localStorage.getItem(STORAGE_KEY_COLLECTION);
+                        
+                        if (savedCollection && data.collections.includes(savedCollection)) {
+                            // Use saved collection if it exists
+                            selectedCollection.value = savedCollection;
+                        } else {
+                            // Otherwise use the first collection
+                            selectedCollection.value = data.collections[0];
+                        }
                     }
                 } else {
                     console.error('Failed to fetch collections');
@@ -193,6 +223,36 @@ const ModelQueryComponent = {
             } catch (err) {
                 console.error('Error fetching collections:', err);
                 error.value = `Error fetching collections: ${err.message}`;
+            }
+        };
+        
+        // Create a new collection
+        const createCollection = async () => {
+            const collectionName = prompt('Enter a name for the new collection:');
+            if (!collectionName) return;
+            
+            try {
+                const response = await fetch('/api/v1/collections/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: collectionName,
+                        description: `Collection created on ${new Date().toLocaleString()}`
+                    })
+                });
+                
+                if (response.ok) {
+                    await fetchCollections();
+                    selectedCollection.value = collectionName;
+                } else {
+                    const errorData = await response.json();
+                    error.value = `Failed to create collection: ${errorData.detail || 'Unknown error'}`;
+                }
+            } catch (err) {
+                console.error('Error creating collection:', err);
+                error.value = `Error creating collection: ${err.message}`;
             }
         };
         
@@ -309,7 +369,8 @@ const ModelQueryComponent = {
             lastSources,
             canSubmit,
             submitQuery,
-            handleEnterKey
+            handleEnterKey,
+            createCollection
         };
     }
 };

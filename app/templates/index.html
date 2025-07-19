@@ -25,41 +25,78 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body>
-    <div class="container mt-5">
-        <header class="mb-5 text-center">
-            <h1>RAGU</h1>
-            <p class="lead">Retrieval-Augmented Generation Utility</p>
-        </header>
-        
-        <main>
-            <div class="row">
-                <div class="col-md-6">
-                    <!-- React component for PDF upload -->
-                    <div id="pdf-upload-container"></div>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h3>RAGU</h3>
+            </div>
+            <div class="sidebar-menu">
+                <div class="sidebar-item active" id="chat-menu-item">
+                    <i class="bi bi-chat-left-text"></i>
+                    <span class="sidebar-text">Chat</span>
                 </div>
-                <div class="col-md-6">
-                    <!-- Vue component for model selection and query -->
+                <div class="sidebar-item" id="files-menu-item">
+                    <i class="bi bi-file-earmark-pdf"></i>
+                    <span class="sidebar-text">Files</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <header class="app-header">
+                <h1>Retrieval-Augmented Generation Utility</h1>
+            </header>
+            
+            <main>
+                <!-- Chat Interface (visible by default) -->
+                <div id="chat-interface" class="content-panel active">
                     <div id="model-query-container">
                         <model-query-component></model-query-component>
                     </div>
                 </div>
-            </div>
-            
-            <div class="row mt-4">
-                <div class="col-12">
-                    <!-- Results display area -->
-                    <div id="results-container" class="border rounded p-3 bg-light"></div>
+                
+                <!-- File Management Interface (hidden by default) -->
+                <div id="file-management" class="content-panel">
+                    <div id="pdf-upload-container"></div>
                 </div>
-            </div>
-        </main>
-        
-        <footer class="mt-5 text-center text-muted">
-            <p>RAGU - Retrieval-Augmented Generation Utility</p>
-        </footer>
+            </main>
+            
+            <footer class="app-footer text-center text-muted">
+                <p>RAGU - Retrieval-Augmented Generation Utility</p>
+            </footer>
+        </div>
     </div>
     
     <!-- Custom JavaScript -->
     <script src="{{ url_for('static', path='/js/pdf-upload.js') }}" type="text/babel"></script>
     <script src="{{ url_for('static', path='/js/model-query.js') }}"></script>
+    
+    <!-- UI Navigation Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatMenuItem = document.getElementById('chat-menu-item');
+            const filesMenuItem = document.getElementById('files-menu-item');
+            const chatInterface = document.getElementById('chat-interface');
+            const fileManagement = document.getElementById('file-management');
+            
+            // Chat menu item click handler
+            chatMenuItem.addEventListener('click', function() {
+                chatMenuItem.classList.add('active');
+                filesMenuItem.classList.remove('active');
+                chatInterface.classList.add('active');
+                fileManagement.classList.remove('active');
+            });
+            
+            // Files menu item click handler
+            filesMenuItem.addEventListener('click', function() {
+                filesMenuItem.classList.add('active');
+                chatMenuItem.classList.remove('active');
+                fileManagement.classList.add('active');
+                chatInterface.classList.remove('active');
+            });
+        });
+    </script>
 </body>
 </html>
