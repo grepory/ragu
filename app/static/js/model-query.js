@@ -191,6 +191,16 @@ const ModelQueryComponent = {
             
             // Load conversations for the sidebar
             fetchConversations();
+            
+            // Listen for custom events from sidebar
+            document.addEventListener('loadConversation', (event) => {
+                const conversationId = event.detail.conversationId;
+                selectConversation(conversationId);
+            });
+            
+            document.addEventListener('startNewConversation', () => {
+                startNewConversation();
+            });
         });
         
         // Watch for changes to selectedCollection and save to localStorage

@@ -647,11 +647,9 @@
                     setActiveTab('chat');
                 }
                 
-                // Create a new conversation using the existing Vue component
-                const modelQueryComponent = document.querySelector('model-query-component');
-                if (modelQueryComponent && modelQueryComponent.__vue__) {
-                    modelQueryComponent.__vue__.startNewConversation();
-                }
+                // Create a custom event for new conversation
+                const event = new CustomEvent('startNewConversation');
+                document.dispatchEvent(event);
                 
                 // Keep sidebar open after creating new conversation
             });
@@ -713,11 +711,11 @@
                     setActiveTab('chat');
                 }
                 
-                // Load conversation using the existing Vue component
-                const modelQueryComponent = document.querySelector('model-query-component');
-                if (modelQueryComponent && modelQueryComponent.__vue__) {
-                    modelQueryComponent.__vue__.loadConversation(conversationId);
-                }
+                // Create a custom event to communicate with Vue component
+                const event = new CustomEvent('loadConversation', {
+                    detail: { conversationId: conversationId }
+                });
+                document.dispatchEvent(event);
                 
                 // Keep sidebar open after loading conversation
             }
