@@ -19,7 +19,7 @@ const { createApp, ref, onMounted, computed, watch } = Vue;
 const ModelQueryComponent = {
     template: `
         <div class="model-query-component">
-            <h3><i class="bi bi-chat-left-text me-2"></i>Chat with Documents</h3>
+<!--            <h3><i class="bi bi-chat-left-text me-2"></i>Chat with Documents</h3>-->
             
             <!-- Conversation history - Primary visual element -->
             <div class="conversation-wrapper">
