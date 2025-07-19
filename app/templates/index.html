@@ -71,6 +71,17 @@
                             <div class="drag-drop-instructions">
                                 <p class="text-muted"><i class="bi bi-cloud-upload me-2"></i>Drag files onto collections to upload</p>
                             </div>
+                            
+                            <!-- Upload Progress Area -->
+                            <div id="upload-progress-area" class="upload-progress-area" style="display: none;">
+                                <div class="upload-progress-header">
+                                    <h6><i class="bi bi-cloud-upload me-2"></i>Uploading Files...</h6>
+                                </div>
+                                <div id="upload-progress-list" class="upload-progress-list">
+                                    <!-- Upload progress items will appear here -->
+                                </div>
+                            </div>
+                            
                             <div id="collections-list" class="collections-list">
                                 <!-- Collections will be loaded here -->
                             </div>
@@ -181,6 +192,12 @@
                                     <div class="drag-drop-overlay">
                                         <i class="bi bi-cloud-upload fs-2"></i>
                                         <p>Drop files here</p>
+                                    </div>
+                                    <div class="upload-overlay">
+                                        <div class="upload-spinner">
+                                            <i class="bi bi-arrow-repeat spin"></i>
+                                        </div>
+                                        <p class="upload-text">Uploading...</p>
                                     </div>
                                 </div>
                             `).join('');
@@ -374,45 +391,130 @@
             async function uploadFilesToCollection(files, collectionName) {
                 console.log(`Uploading ${files.length} files to collection: ${collectionName}`);
                 
+                // Show upload progress area
+                const progressArea = document.getElementById('upload-progress-area');
+                const progressList = document.getElementById('upload-progress-list');
+                const collectionItem = document.querySelector(`[data-collection="${collectionName}"]`);
+                
+                // Show collection uploading state
+                if (collectionItem) {
+                    collectionItem.classList.add('uploading');
+                }
+                
+                // Show progress area
+                progressArea.style.display = 'block';
+                progressList.innerHTML = '';
+                
                 try {
-                    // Upload each file
-                    const results = await Promise.all(files.map(async (file) => {
-                        const formData = new FormData();
-                        formData.append('file', file);
-                        formData.append('collection_name', collectionName);
-                        
-                        const response = await fetch('/api/v1/documents/upload', {
-                            method: 'POST',
-                            body: formData
-                        });
-                        
-                        const result = await response.json();
-                        return {
-                            fileName: file.name,
-                            success: response.ok,
-                            message: response.ok ? result.message : result.detail || 'Upload failed'
-                        };
-                    }));
+                    // Create progress items for each file
+                    const progressItems = files.map(file => {
+                        const progressId = `progress-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                        const progressItem = document.createElement('div');
+                        progressItem.className = 'upload-progress-item';
+                        progressItem.id = progressId;
+                        progressItem.innerHTML = `
+                            <div class="progress-file-info">
+                                <i class="bi bi-file-earmark me-2"></i>
+                                <span class="file-name">${file.name}</span>
+                                <span class="collection-badge">${collectionName}</span>
+                            </div>
+                            <div class="progress-status">
+                                <i class="bi bi-arrow-repeat spin text-primary"></i>
+                                <span class="status-text">Uploading...</span>
+                            </div>
+                        `;
+                        progressList.appendChild(progressItem);
+                        return { element: progressItem, id: progressId, file };
+                    });
+                    
+                    // Upload files one by one to show individual progress
+                    const results = [];
+                    for (const { element, file } of progressItems) {
+                        try {
+                            const formData = new FormData();
+                            formData.append('file', file);
+                            formData.append('collection_name', collectionName);
+                            
+                            const response = await fetch('/api/v1/documents/upload', {
+                                method: 'POST',
+                                body: formData
+                            });
+                            
+                            const result = await response.json();
+                            const success = response.ok;
+                            
+                            // Update progress item
+                            const statusElement = element.querySelector('.progress-status');
+                            if (success) {
+                                statusElement.innerHTML = `
+                                    <i class="bi bi-check-circle text-success"></i>
+                                    <span class="status-text text-success">Uploaded</span>
+                                `;
+                            } else {
+                                statusElement.innerHTML = `
+                                    <i class="bi bi-x-circle text-danger"></i>
+                                    <span class="status-text text-danger">Failed</span>
+                                `;
+                            }
+                            
+                            results.push({
+                                fileName: file.name,
+                                success: success,
+                                message: success ? result.message : result.detail || 'Upload failed'
+                            });
+                            
+                        } catch (error) {
+                            // Update progress item for error
+                            const statusElement = element.querySelector('.progress-status');
+                            statusElement.innerHTML = `
+                                <i class="bi bi-x-circle text-danger"></i>
+                                <span class="status-text text-danger">Error</span>
+                            `;
+                            
+                            results.push({
+                                fileName: file.name,
+                                success: false,
+                                message: error.message
+                            });
+                        }
+                    }
+                    
+                    // Remove collection uploading state
+                    if (collectionItem) {
+                        collectionItem.classList.remove('uploading');
+                    }
                     
                     // Check if all uploads were successful
                     const successfulUploads = results.filter(result => result.success);
                     const failedUploads = results.filter(result => !result.success);
                     
-                    // Show upload status
+                    // Hide progress area after a delay
+                    setTimeout(() => {
+                        progressArea.style.display = 'none';
+                    }, 3000);
+                    
+                    // Show final status
                     if (successfulUploads.length > 0) {
-                        alert(`Successfully uploaded ${successfulUploads.length} file(s) to collection "${collectionName}".`);
-                        
                         // Auto-expand the collection to show the new documents
                         showCollectionDocuments(collectionName);
                     }
                     
-                    if (failedUploads.length > 0) {
+                    if (failedUploads.length > 0 && successfulUploads.length === 0) {
                         const failedFileNames = failedUploads.map(f => f.fileName).join(', ');
                         alert(`Failed to upload: ${failedFileNames}`);
                     }
                     
                 } catch (error) {
                     console.error('Error uploading files:', error);
+                    
+                    // Remove collection uploading state
+                    if (collectionItem) {
+                        collectionItem.classList.remove('uploading');
+                    }
+                    
+                    // Hide progress area
+                    progressArea.style.display = 'none';
+                    
                     alert(`Error uploading files: ${error.message}`);
                 }
             }
