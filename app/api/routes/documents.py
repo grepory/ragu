@@ -228,6 +228,52 @@ async def get_document(collection_name: str, document_id: str):
         )
 
 
+@router.delete("/{collection_name}/by-source")
+async def delete_document_by_source(
+    collection_name: str,
+    request: DeleteDocumentRequest
+):
+    """Delete all chunks of a document by source filename.
+    
+    Args:
+        collection_name: Name of the collection
+        request: JSON body containing the source filename
+    """
+    try:
+        # Check if collection exists
+        collections = chroma_client.list_collections()
+        if collection_name not in collections:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Collection '{collection_name}' not found"
+            )
+        
+        # Extract source from request body
+        source = request.source
+        
+        # Delete all chunks of the document by source
+        chunks_deleted = chroma_client.delete_documents_by_source(collection_name, source)
+        
+        if chunks_deleted == 0:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No document found with source '{source}' in collection '{collection_name}'"
+            )
+        
+        return {
+            "status": "success",
+            "message": f"Deleted document '{source}' from collection '{collection_name}'",
+            "chunks_deleted": chunks_deleted
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to delete document: {str(e)}"
+        )
+
+
 @router.delete("/{collection_name}/{document_id}", status_code=204)
 async def delete_document(collection_name: str, document_id: str):
     """Delete a document by ID.
@@ -269,54 +315,6 @@ async def debug_collection(collection_name: str):
         }
     except Exception as e:
         return {"error": str(e)}
-
-
-@router.delete("/{collection_name}/by-source")
-async def delete_document_by_source(
-    collection_name: str,
-    request: DeleteDocumentRequest
-):
-    """Delete all chunks of a document by source filename.
-    
-    Args:
-        collection_name: Name of the collection
-        request: JSON body containing the source filename
-    """
-    try:
-        # Check if collection exists
-        collections = chroma_client.list_collections()
-        if collection_name not in collections:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Collection '{collection_name}' not found"
-            )
-        
-        # Extract source from request body
-        source = request.source
-        print(f"DEBUG: Attempting to delete source '{source}' from collection '{collection_name}'")
-        
-        # Delete all chunks of the document by source
-        chunks_deleted = chroma_client.delete_documents_by_source(collection_name, source)
-        print(f"DEBUG: Deleted {chunks_deleted} chunks")
-        
-        if chunks_deleted == 0:
-            raise HTTPException(
-                status_code=404,
-                detail=f"No document found with source '{source}' in collection '{collection_name}'"
-            )
-        
-        return {
-            "status": "success",
-            "message": f"Deleted document '{source}' from collection '{collection_name}'",
-            "chunks_deleted": chunks_deleted
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to delete document: {str(e)}"
-        )
 
 
 @router.get("/{collection_name}", response_model=DocumentList)
