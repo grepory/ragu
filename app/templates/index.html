@@ -68,6 +68,9 @@
                                     <i class="bi bi-plus-circle me-1"></i>New Collection
                                 </button>
                             </div>
+                            <div class="drag-drop-instructions">
+                                <p class="text-muted"><i class="bi bi-cloud-upload me-2"></i>Drag files onto collections to upload</p>
+                            </div>
                             <div id="collections-list" class="collections-list">
                                 <!-- Collections will be loaded here -->
                             </div>
@@ -85,13 +88,6 @@
                                 </div>
                             </div>
                         </div>
-                        
-                        <div class="documents-section">
-                            <div class="section-header">
-                                <h4><i class="bi bi-file-earmark-text me-2"></i>Document Upload</h4>
-                            </div>
-                            <div id="pdf-upload-container"></div>
-                        </div>
                     </div>
                 </div>
             </main>
@@ -99,7 +95,6 @@
     </div>
     
     <!-- Custom JavaScript -->
-    <script src="{{ url_for('static', path='/js/pdf-upload.js') }}" type="text/babel"></script>
     <script src="{{ url_for('static', path='/js/model-query.js') }}"></script>
     
     <!-- UI Navigation Script -->
@@ -174,22 +169,34 @@
                             collectionsList.innerHTML = '<div class="text-muted text-center">No collections found. Create one to get started.</div>';
                         } else {
                             collectionsList.innerHTML = collections.map(collection => `
-                                <div class="collection-item" data-collection="${collection}">
-                                    <div class="collection-name">
-                                        <i class="bi bi-collection me-2"></i>${collection}
+                                <div class="collection-item drag-drop-target" data-collection="${collection}">
+                                    <div class="collection-content">
+                                        <div class="collection-name">
+                                            <i class="bi bi-collection me-2"></i>${collection}
+                                        </div>
+                                        <div class="collection-stats">
+                                            <small class="text-muted">Click to view • Drag files to upload</small>
+                                        </div>
                                     </div>
-                                    <div class="collection-stats">
-                                        <small class="text-muted">Click to view documents in this collection</small>
+                                    <div class="drag-drop-overlay">
+                                        <i class="bi bi-cloud-upload fs-2"></i>
+                                        <p>Drop files here</p>
                                     </div>
                                 </div>
                             `).join('');
                             
                             // Add click event listeners to collection items
                             document.querySelectorAll('.collection-item').forEach(item => {
-                                item.addEventListener('click', function() {
-                                    const collectionName = this.getAttribute('data-collection');
+                                const collectionContent = item.querySelector('.collection-content');
+                                collectionContent.addEventListener('click', function() {
+                                    const collectionName = item.getAttribute('data-collection');
                                     showCollectionDocuments(collectionName);
                                 });
+                            });
+                            
+                            // Add drag and drop event listeners to collection items
+                            document.querySelectorAll('.drag-drop-target').forEach(item => {
+                                setupDragAndDrop(item);
                             });
                         }
                     } else {
@@ -321,6 +328,95 @@
                 }
             }
             
+            // Drag and drop functionality
+            function setupDragAndDrop(collectionItem) {
+                const collectionName = collectionItem.getAttribute('data-collection');
+                
+                // Prevent default drag behaviors
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                    collectionItem.addEventListener(eventName, preventDefaults, false);
+                });
+                
+                function preventDefaults(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+                
+                // Highlight drop area when item is dragged over it
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    collectionItem.addEventListener(eventName, highlight, false);
+                });
+                
+                ['dragleave', 'drop'].forEach(eventName => {
+                    collectionItem.addEventListener(eventName, unhighlight, false);
+                });
+                
+                function highlight() {
+                    collectionItem.classList.add('drag-over');
+                }
+                
+                function unhighlight() {
+                    collectionItem.classList.remove('drag-over');
+                }
+                
+                // Handle dropped files
+                collectionItem.addEventListener('drop', handleDrop, false);
+                
+                function handleDrop(e) {
+                    const files = Array.from(e.dataTransfer.files);
+                    if (files.length > 0) {
+                        uploadFilesToCollection(files, collectionName);
+                    }
+                }
+            }
+            
+            // Upload files to collection
+            async function uploadFilesToCollection(files, collectionName) {
+                console.log(`Uploading ${files.length} files to collection: ${collectionName}`);
+                
+                try {
+                    // Upload each file
+                    const results = await Promise.all(files.map(async (file) => {
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        formData.append('collection_name', collectionName);
+                        
+                        const response = await fetch('/api/v1/documents/upload', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        const result = await response.json();
+                        return {
+                            fileName: file.name,
+                            success: response.ok,
+                            message: response.ok ? result.message : result.detail || 'Upload failed'
+                        };
+                    }));
+                    
+                    // Check if all uploads were successful
+                    const successfulUploads = results.filter(result => result.success);
+                    const failedUploads = results.filter(result => !result.success);
+                    
+                    // Show upload status
+                    if (successfulUploads.length > 0) {
+                        alert(`Successfully uploaded ${successfulUploads.length} file(s) to collection "${collectionName}".`);
+                        
+                        // Auto-expand the collection to show the new documents
+                        showCollectionDocuments(collectionName);
+                    }
+                    
+                    if (failedUploads.length > 0) {
+                        const failedFileNames = failedUploads.map(f => f.fileName).join(', ');
+                        alert(`Failed to upload: ${failedFileNames}`);
+                    }
+                    
+                } catch (error) {
+                    console.error('Error uploading files:', error);
+                    alert(`Error uploading files: ${error.message}`);
+                }
+            }
+
             // Back to collections button
             const backToCollectionsBtn = document.getElementById('back-to-collections');
             backToCollectionsBtn.addEventListener('click', function() {

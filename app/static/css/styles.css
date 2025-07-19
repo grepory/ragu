@@ -161,19 +161,17 @@ main {
 /* File Management Interface */
 .file-management-container {
     padding: 2rem;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 2rem;
     height: 100%;
     overflow-y: auto;
 }
 
-.collections-section,
-.documents-section {
+.collections-section {
     background-color: #E2D5C1;
     border-radius: 0.5rem;
     padding: 1.5rem;
     height: fit-content;
+    max-width: 800px;
+    margin: 0 auto;
 }
 
 .section-header {
@@ -202,12 +200,58 @@ main {
     padding: 1rem;
     border: 1px solid #B8AD96;
     transition: all 0.2s ease;
+    position: relative;
+    cursor: pointer;
 }
 
 .collection-item:hover {
     background-color: #B8AD96;
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Drag and drop styles */
+.collection-item.drag-over {
+    border: 2px dashed #007bff;
+    background-color: rgba(0, 123, 255, 0.1);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.2);
+}
+
+.drag-drop-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 123, 255, 0.9);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.25rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+}
+
+.collection-item.drag-over .drag-drop-overlay {
+    opacity: 1;
+}
+
+.collection-content {
+    position: relative;
+    z-index: 1;
+}
+
+.drag-drop-instructions {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background-color: rgba(0, 123, 255, 0.05);
+    border: 1px dashed rgba(0, 123, 255, 0.3);
+    border-radius: 0.25rem;
 }
 
 .collection-name {
@@ -305,12 +349,7 @@ main {
     border-radius: 0.75rem;
 }
 
-@media (max-width: 768px) {
-    .file-management-container {
-        grid-template-columns: 1fr;
-        gap: 1rem;
-    }
-}
+/* Removed obsolete responsive grid CSS */
 
 /* PDF Upload Component */
 .pdf-upload-area {
