@@ -27,6 +27,7 @@ h1 {
     flex-direction: column;
     height: 100vh;
     width: 100%;
+    position: relative;
 }
 
 /* Top Navigation Bar */
@@ -38,7 +39,7 @@ h1 {
     color: #fff;
     border-bottom: 1px solid #dee2e6;
     position: relative;
-    z-index: 1001;
+    z-index: 1200;
 }
 
 .app-title {
@@ -49,6 +50,27 @@ h1 {
 .app-title h3 {
     margin: 0;
     color: #fff;
+}
+
+/* Sidebar Toggle Button */
+.sidebar-toggle {
+    display: flex;
+    align-items: center;
+}
+
+.sidebar-toggle-btn {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    transition: background-color 0.2s ease;
+}
+
+.sidebar-toggle-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
 }
 
 /* Hamburger Menu */
@@ -75,7 +97,7 @@ h1 {
 .dropdown-menu {
     position: absolute;
     top: 100%;
-    left: 0;
+    right: 0;
     background-color: #5C5244;
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 0.25rem;
@@ -115,13 +137,146 @@ h1 {
     margin-right: 0.75rem;
 }
 
+/* Sidebar */
+.sidebar {
+    position: fixed;
+    top: 77px;
+    left: 0;
+    width: 320px;
+    height: calc(100vh - 77px);
+    background-color: #E2D5C1;
+    border-right: 1px solid #D0C4B0;
+    z-index: 1100;
+    transition: left 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar.hide {
+    left: -320px;
+}
+
+.sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background-color: #5C5244;
+    color: #fff;
+    border-bottom: 1px solid #D0C4B0;
+}
+
+.sidebar-header h5 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.sidebar-header .btn-primary {
+    background-color: var(--oxford-stone);
+    border-color: var(--oxford-stone);
+    color: var(--salon-drab);
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+
+.sidebar-header .btn-primary:hover {
+    background-color: var(--salon-drab);
+    border-color: var(--salon-drab);
+    color: #fff;
+}
+
+.sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+}
+
+.conversation-history-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.sidebar-conversation-item {
+    background-color: var(--oxford-stone);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    border: 1px solid #B8AD96;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.sidebar-conversation-item:hover {
+    background-color: #B8AD96;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.conversation-preview {
+    flex: 1;
+}
+
+.conversation-preview .conversation-title {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    color: var(--salon-drab);
+    font-size: 0.9rem;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.conversation-date {
+    font-size: 0.75rem;
+    color: #6c757d;
+}
+
+.conversation-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.conversation-actions .delete-conversation-btn {
+    padding: 0.25rem;
+    font-size: 0.75rem;
+    min-width: auto;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.empty-conversations {
+    text-align: center;
+    padding: 2rem;
+}
+
 /* Main Content Styles */
 .main-content {
-    flex: 1;
+    position: fixed;
+    top: 77px;
+    left: 320px;
+    right: 0;
+    bottom: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    width: 100%;
+    transition: left 0.3s ease;
+}
+
+.main-content.sidebar-hidden {
+    left: 0;
 }
 
 .app-header {
@@ -663,13 +818,18 @@ main {
 .chat-input-area {
     position: fixed;
     bottom: 0;
-    left: 0;
+    left: 320px;
     right: 0;
     background-color: var(--oxford-stone);
     padding: 10px 20px;
     border-top: 1px solid #dee2e6;
     z-index: 100;
-    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1); /* Add subtle shadow for visual separation */
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    transition: left 0.3s ease;
+}
+
+.chat-input-area.sidebar-hidden {
+    left: 0;
 }
 
 /* Dropdowns Container */
@@ -831,5 +991,63 @@ main {
 @keyframes spinner {
     to {
         transform: rotate(360deg);
+    }
+}
+
+/* Responsive Design for Sidebar */
+@media (max-width: 768px) {
+    .sidebar {
+        width: 280px;
+    }
+    
+    .sidebar.hide {
+        left: -280px;
+    }
+    
+    .main-content {
+        left: 280px;
+    }
+    
+    .main-content.sidebar-hidden {
+        left: 0;
+    }
+    
+    .chat-input-area {
+        left: 280px;
+    }
+    
+    .chat-input-area.sidebar-hidden {
+        left: 0;
+    }
+}
+
+@media (max-width: 480px) {
+    .sidebar {
+        width: 100%;
+    }
+    
+    .sidebar.hide {
+        left: -100%;
+    }
+    
+    .main-content {
+        left: 0;
+    }
+    
+    .main-content.sidebar-hidden {
+        left: 0;
+    }
+    
+    .chat-input-area {
+        left: 0;
+    }
+    
+    .chat-input-area.sidebar-hidden {
+        left: 0;
+    }
+    
+    /* Always hide sidebar on mobile by default */
+    .sidebar {
+        left: -100%;
     }
 }

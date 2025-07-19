@@ -26,8 +26,16 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- Top Navigation Bar with Hamburger Menu -->
+        <!-- Top Navigation Bar with Sidebar Toggle and Hamburger Menu -->
         <div class="top-nav">
+            <div class="sidebar-toggle">
+                <button class="sidebar-toggle-btn" id="sidebar-toggle-btn">
+                    <i class="bi bi-layout-sidebar"></i>
+                </button>
+            </div>
+            <div class="app-title">
+                <h3>RAGU</h3>
+            </div>
             <div class="hamburger-menu">
                 <button class="hamburger-btn" id="hamburger-btn">
                     <i class="bi bi-list"></i>
@@ -43,8 +51,20 @@
                     </div>
                 </div>
             </div>
-            <div class="app-title">
-                <h3>RAGU</h3>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h5><i class="bi bi-chat-left-text me-2"></i>Conversations</h5>
+                <button class="btn btn-primary btn-sm" id="new-conversation-btn">
+                    <i class="bi bi-plus-lg me-1"></i>New Chat
+                </button>
+            </div>
+            <div class="sidebar-content">
+                <div id="conversation-history-sidebar" class="conversation-history-sidebar">
+                    <!-- Conversation history will be loaded here -->
+                </div>
             </div>
         </div>
         
@@ -566,6 +586,168 @@
                     alert(`Error deleting document: ${error.message}`);
                 }
             }
+            
+            // Sidebar functionality
+            const sidebar = document.getElementById('sidebar');
+            const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
+            const newConversationBtn = document.getElementById('new-conversation-btn');
+            const conversationHistorySidebar = document.getElementById('conversation-history-sidebar');
+            const mainContent = document.querySelector('.main-content');
+            const chatInputArea = document.querySelector('.chat-input-area');
+            
+            // Toggle sidebar
+            sidebarToggleBtn.addEventListener('click', function() {
+                sidebar.classList.toggle('hide');
+                mainContent.classList.toggle('sidebar-hidden');
+                if (chatInputArea) {
+                    chatInputArea.classList.toggle('sidebar-hidden');
+                }
+                
+                // Update icon based on sidebar state
+                const icon = sidebarToggleBtn.querySelector('i');
+                if (sidebar.classList.contains('hide')) {
+                    icon.className = 'bi bi-layout-sidebar';
+                } else {
+                    icon.className = 'bi bi-layout-sidebar-reverse';
+                }
+            });
+            
+            // Initialize sidebar based on screen size
+            function initializeSidebar() {
+                const icon = sidebarToggleBtn.querySelector('i');
+                if (window.innerWidth <= 480) {
+                    // On mobile, start with sidebar hidden
+                    sidebar.classList.add('hide');
+                    mainContent.classList.add('sidebar-hidden');
+                    if (chatInputArea) {
+                        chatInputArea.classList.add('sidebar-hidden');
+                    }
+                    icon.className = 'bi bi-layout-sidebar';
+                } else {
+                    // On desktop, start with sidebar open
+                    sidebar.classList.remove('hide');
+                    mainContent.classList.remove('sidebar-hidden');
+                    if (chatInputArea) {
+                        chatInputArea.classList.remove('sidebar-hidden');
+                    }
+                    icon.className = 'bi bi-layout-sidebar-reverse';
+                }
+            }
+            
+            // Initialize on load
+            initializeSidebar();
+            
+            // Handle window resize
+            window.addEventListener('resize', initializeSidebar);
+            
+            // New conversation button
+            newConversationBtn.addEventListener('click', function() {
+                // Check if we're in the chat interface
+                if (!chatInterface.classList.contains('active')) {
+                    setActiveTab('chat');
+                }
+                
+                // Create a new conversation using the existing Vue component
+                const modelQueryComponent = document.querySelector('model-query-component');
+                if (modelQueryComponent && modelQueryComponent.__vue__) {
+                    modelQueryComponent.__vue__.startNewConversation();
+                }
+                
+                // Keep sidebar open after creating new conversation
+            });
+            
+            // Load conversation history in sidebar
+            async function loadConversationHistorySidebar() {
+                try {
+                    const response = await fetch('/api/v1/conversations/');
+                    if (response.ok) {
+                        const data = await response.json();
+                        const conversations = data.conversations || [];
+                        
+                        if (conversations.length === 0) {
+                            conversationHistorySidebar.innerHTML = '<div class="empty-conversations"><p class="text-muted text-center">No conversations yet</p></div>';
+                        } else {
+                            conversationHistorySidebar.innerHTML = conversations.map(conv => `
+                                <div class="sidebar-conversation-item" data-id="${conv.id}">
+                                    <div class="conversation-preview">
+                                        <div class="conversation-title">${conv.title}</div>
+                                        <div class="conversation-date">${new Date(conv.created_at).toLocaleDateString()}</div>
+                                    </div>
+                                    <div class="conversation-actions">
+                                        <button class="btn btn-outline-danger btn-sm delete-conversation-btn" data-id="${conv.id}">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('');
+                            
+                            // Add click event listeners to conversation items
+                            document.querySelectorAll('.sidebar-conversation-item').forEach(item => {
+                                const conversationPreview = item.querySelector('.conversation-preview');
+                                conversationPreview.addEventListener('click', function() {
+                                    const conversationId = item.getAttribute('data-id');
+                                    loadConversationFromSidebar(conversationId);
+                                });
+                            });
+                            
+                            // Add delete button event listeners
+                            document.querySelectorAll('.delete-conversation-btn').forEach(button => {
+                                button.addEventListener('click', function(e) {
+                                    e.stopPropagation();
+                                    const conversationId = this.getAttribute('data-id');
+                                    deleteConversationFromSidebar(conversationId);
+                                });
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error loading conversation history:', error);
+                    conversationHistorySidebar.innerHTML = '<div class="text-danger text-center">Error loading conversations</div>';
+                }
+            }
+            
+            // Load conversation from sidebar
+            function loadConversationFromSidebar(conversationId) {
+                // Switch to chat interface if not already active
+                if (!chatInterface.classList.contains('active')) {
+                    setActiveTab('chat');
+                }
+                
+                // Load conversation using the existing Vue component
+                const modelQueryComponent = document.querySelector('model-query-component');
+                if (modelQueryComponent && modelQueryComponent.__vue__) {
+                    modelQueryComponent.__vue__.loadConversation(conversationId);
+                }
+                
+                // Keep sidebar open after loading conversation
+            }
+            
+            // Delete conversation from sidebar
+            async function deleteConversationFromSidebar(conversationId) {
+                if (confirm('Are you sure you want to delete this conversation?')) {
+                    try {
+                        const response = await fetch(`/api/v1/conversations/${conversationId}`, {
+                            method: 'DELETE'
+                        });
+                        
+                        if (response.ok) {
+                            // Refresh conversation history
+                            loadConversationHistorySidebar();
+                        } else {
+                            alert('Failed to delete conversation');
+                        }
+                    } catch (error) {
+                        console.error('Error deleting conversation:', error);
+                        alert('Error deleting conversation');
+                    }
+                }
+            }
+            
+            // Load conversation history on page load
+            loadConversationHistorySidebar();
+            
+            // Expose functions globally so Vue component can call them
+            window.refreshSidebarConversations = loadConversationHistorySidebar;
             
             // Check localStorage for active tab on page load
             const activeTab = localStorage.getItem('activeTab');

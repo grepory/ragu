@@ -19,71 +19,8 @@ const { createApp, ref, onMounted, computed, watch } = Vue;
 const ModelQueryComponent = {
     template: `
         <div class="model-query-component">
-            <!-- Conversation List Modal -->
-            <div v-if="showConversationList" class="conversation-list-modal">
-                <div class="conversation-list-header">
-                    <h4><i class="bi bi-chat-left-text me-2"></i>Conversations</h4>
-                    <button class="btn btn-sm btn-outline-secondary" @click="startNewConversation">
-                        <i class="bi bi-plus-circle me-1"></i>New Conversation
-                    </button>
-                </div>
-                
-                <div v-if="isLoadingConversations" class="text-center p-4">
-                    <div class="loading-spinner"></div>
-                    <p class="mt-2">Loading conversations...</p>
-                </div>
-                
-                <div v-else-if="conversations.length === 0" class="text-center text-muted p-4">
-                    <i class="bi bi-chat-square-text fs-2"></i>
-                    <p class="mt-2">No conversations yet</p>
-                </div>
-                
-                <div v-else class="conversation-list">
-                    <div v-for="conversation in conversations" :key="conversation.id" 
-                         class="conversation-item p-3 mb-2">
-                        <div class="conversation-content" @click="selectConversation(conversation.id)">
-                            <div class="conversation-title">
-                                <i class="bi bi-chat-text me-2"></i>
-                                {{ conversation.title }}
-                            </div>
-                            <div class="conversation-meta">
-                                <small class="text-muted">
-                                    <i class="bi bi-collection me-1"></i>{{ conversation.collection_name }}
-                                    <span class="mx-2">•</span>
-                                    {{ new Date(conversation.updated_at).toLocaleString() }}
-                                    <span class="ms-2">{{ conversation.messages.length }} messages</span>
-                                </small>
-                            </div>
-                        </div>
-                        <div class="conversation-actions">
-                            <button class="btn btn-sm btn-outline-secondary me-1" 
-                                    @click.stop="renameConversation(conversation)"
-                                    title="Rename conversation">
-                                <i class="bi bi-pencil"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger" 
-                                    @click.stop="confirmDeleteConversation(conversation)"
-                                    title="Delete conversation">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
             <!-- Conversation history - Primary visual element -->
-            <div v-if="!showConversationList" class="conversation-wrapper">
-                <div class="conversation-header">
-                    <button class="btn btn-sm btn-outline-secondary" @click="toggleConversationList">
-                        <i class="bi bi-list me-1"></i>Conversations
-                    </button>
-                    <span v-if="currentConversationId" class="conversation-title">
-                        {{ conversations.find(c => c.id === currentConversationId)?.title || 'Current Conversation' }}
-                        <small class="text-muted ms-2">
-                            <i class="bi bi-collection me-1"></i>{{ selectedCollection }}
-                        </small>
-                    </span>
-                </div>
+            <div class="conversation-wrapper">
                 
                 <div v-if="conversationHistory.length > 0" class="conversation-history">
                     <div class="conversation-container p-3">
@@ -224,7 +161,6 @@ const ModelQueryComponent = {
         const lastSources = ref([]);
         const conversations = ref([]);
         const currentConversationId = ref(null);
-        const showConversationList = ref(false);
         const isLoadingConversations = ref(false);
         
         // Local storage keys for persistence
@@ -253,9 +189,8 @@ const ModelQueryComponent = {
             // Note: We'll apply the saved collection after collections are loaded
             // This happens in the fetchCollections function
             
-            // Show conversation list when chat is first opened
+            // Load conversations for the sidebar
             fetchConversations();
-            showConversationList.value = true;
         });
         
         // Watch for changes to selectedCollection and save to localStorage
@@ -383,9 +318,6 @@ const ModelQueryComponent = {
                         selectedModel.value = conversation.model;
                     }
                     
-                    // Hide the conversation list
-                    showConversationList.value = false;
-                    
                     // Scroll to the bottom of the conversation container
                     setTimeout(() => {
                         const container = document.querySelector('.conversation-container');
@@ -408,19 +340,11 @@ const ModelQueryComponent = {
             // Clear the current conversation
             currentConversationId.value = null;
             conversationHistory.value = [];
-            
-            // Hide the conversation list
-            showConversationList.value = false;
         };
         
-        // Toggle conversation list
-        const toggleConversationList = () => {
-            showConversationList.value = !showConversationList.value;
-            
-            // If showing the conversation list, fetch the latest conversations
-            if (showConversationList.value) {
-                fetchConversations();
-            }
+        // Load a conversation (called from sidebar)
+        const loadConversation = (conversationId) => {
+            selectConversation(conversationId);
         };
         
         // Handle Enter key press
@@ -493,6 +417,11 @@ const ModelQueryComponent = {
                     // Update current conversation ID if provided
                     if (data.conversation_id) {
                         currentConversationId.value = data.conversation_id;
+                    }
+                    
+                    // Refresh sidebar conversations if function is available
+                    if (window.refreshSidebarConversations) {
+                        window.refreshSidebarConversations();
                     }
                     
                     // Scroll to the bottom of the conversation container
@@ -612,7 +541,6 @@ const ModelQueryComponent = {
             lastSources,
             conversations,
             currentConversationId,
-            showConversationList,
             isLoadingConversations,
             canSubmit,
             submitQuery,
@@ -621,7 +549,7 @@ const ModelQueryComponent = {
             fetchConversations,
             selectConversation,
             startNewConversation,
-            toggleConversationList,
+            loadConversation,
             renameConversation,
             confirmDeleteConversation
         };
