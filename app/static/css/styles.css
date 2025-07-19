@@ -181,8 +181,8 @@ main {
 .conversation-wrapper {
     flex: 1;
     overflow: hidden;
-    margin-bottom: 10px;
     position: relative;
+    padding-bottom: 160px; /* Add padding to account for the fixed chat input area */
 }
 
 .conversation-history {
@@ -195,6 +195,7 @@ main {
     padding: 1rem;
     background-color: var(--oxford-stone);
     border-radius: 0.25rem;
+    padding-bottom: 2rem; /* Add extra padding at the bottom for better spacing */
 }
 
 .empty-conversation-placeholder {
@@ -203,18 +204,28 @@ main {
     align-items: center;
     justify-content: center;
     background-color: var(--oxford-stone);
-    /*border-radius: 0.25rem;*/
-    /*border: 1px solid #dee2e6;*/
+    border-radius: 0.25rem;
+    padding-bottom: 2rem; /* Match the conversation container padding */
 }
 
 /* Chat Input Area - Fixed at bottom */
 .chat-input-area {
-    position: sticky;
+    position: fixed;
     bottom: 0;
+    left: 250px; /* Account for sidebar width */
+    right: 0;
     background-color: var(--oxford-stone);
-    padding: 10px 0;
+    padding: 10px 20px;
     border-top: 1px solid #dee2e6;
     z-index: 100;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1); /* Add subtle shadow for visual separation */
+}
+
+/* Adjust for smaller screens */
+@media (max-width: 768px) {
+    .chat-input-area {
+        left: 0; /* Full width on smaller screens */
+    }
 }
 
 /* Dropdowns Container */
