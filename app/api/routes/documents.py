@@ -257,6 +257,98 @@ async def delete_document(collection_name: str, document_id: str):
         )
 
 
+@router.get("/{collection_name}", response_model=DocumentList)
+async def list_collection_documents(
+    collection_name: str,
+    limit: Optional[int] = Query(100, ge=1, le=1000)
+):
+    """List all documents in a collection.
+    
+    Args:
+        collection_name: Name of the collection
+        limit: Maximum number of documents to return
+        
+    Returns:
+        List of documents in the collection
+    """
+    try:
+        # Check if collection exists
+        collections = chroma_client.list_collections()
+        if collection_name not in collections:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Collection '{collection_name}' not found"
+            )
+        
+        # Get all documents in the collection
+        result = chroma_client.get_collection_documents(collection_name, limit=limit)
+        
+        documents = []
+        if result and result.get("ids"):
+            # Group documents by source file
+            doc_sources = {}
+            
+            for i, doc_id in enumerate(result["ids"]):
+                text = result["documents"][i] if result.get("documents") else ""
+                metadata = result["metadatas"][i] if result.get("metadatas") else {}
+                
+                source = metadata.get("source", "unknown")
+                chunk_num = metadata.get("chunk", 0)
+                
+                if source not in doc_sources:
+                    doc_sources[source] = {
+                        "id": f"{collection_name}_{source}",
+                        "source": source,
+                        "chunks": [],
+                        "total_chunks": metadata.get("total_chunks", 1),
+                        "tags": [],
+                        "metadata": {}
+                    }
+                
+                # Convert tags from comma-separated string back to list if present
+                tags = metadata.get("tags")
+                if tags and isinstance(tags, str):
+                    tags = [tag.strip() for tag in tags.split(',') if tag.strip()]
+                    doc_sources[source]["tags"] = tags
+                
+                doc_sources[source]["chunks"].append({
+                    "id": doc_id,
+                    "chunk": chunk_num,
+                    "text": text[:200] + "..." if len(text) > 200 else text  # Preview
+                })
+                
+                # Store additional metadata
+                doc_sources[source]["metadata"].update({
+                    k: v for k, v in metadata.items() 
+                    if k not in ["source", "chunk", "total_chunks", "tags"]
+                })
+            
+            # Convert to DocumentResponse format
+            for source_info in doc_sources.values():
+                documents.append(DocumentResponse(
+                    id=source_info["id"],
+                    text=f"Document with {len(source_info['chunks'])} chunks",
+                    metadata={
+                        "source": source_info["source"],
+                        "total_chunks": source_info["total_chunks"],
+                        "tags": source_info["tags"],
+                        "additional_metadata": source_info["metadata"]
+                    }
+                ))
+        
+        return DocumentList(
+            documents=documents,
+            total=len(documents)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to list documents: {str(e)}"
+        )
+
+
 @router.post("/query", response_model=QueryResponse)
 async def query_documents(query: QueryRequest):
     """Query documents in the vector database.

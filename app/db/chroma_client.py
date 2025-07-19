@@ -170,6 +170,27 @@ class ChromaClient:
         """
         collection = self.get_or_create_collection(collection_name)
         collection.delete(ids=[document_id])
+    
+    def get_collection_documents(
+        self,
+        collection_name: str,
+        limit: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """Get all documents in a collection.
+        
+        Args:
+            collection_name: Name of the collection
+            limit: Maximum number of documents to return (optional)
+            
+        Returns:
+            Collection data including documents, metadata, and IDs
+        """
+        collection = self.get_or_create_collection(collection_name)
+        
+        # Get all documents in the collection
+        result = collection.get(limit=limit)
+        
+        return result
 
 
 # Create a singleton instance

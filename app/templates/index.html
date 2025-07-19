@@ -26,20 +26,25 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <div class="sidebar-header">
-                <h3>RAGU</h3>
+        <!-- Top Navigation Bar with Hamburger Menu -->
+        <div class="top-nav">
+            <div class="hamburger-menu">
+                <button class="hamburger-btn" id="hamburger-btn">
+                    <i class="bi bi-list"></i>
+                </button>
+                <div class="dropdown-menu" id="nav-dropdown">
+                    <div class="dropdown-item" id="chat-menu-item">
+                        <i class="bi bi-chat-left-text"></i>
+                        <span>Chat Interface</span>
+                    </div>
+                    <div class="dropdown-item" id="files-menu-item">
+                        <i class="bi bi-collection"></i>
+                        <span>Collections & Files</span>
+                    </div>
+                </div>
             </div>
-            <div class="sidebar-menu">
-                <div class="sidebar-item active" id="chat-menu-item">
-                    <i class="bi bi-chat-left-text"></i>
-                    <span class="sidebar-text">Chat</span>
-                </div>
-                <div class="sidebar-item" id="files-menu-item">
-                    <i class="bi bi-file-earmark-pdf"></i>
-                    <span class="sidebar-text">Files</span>
-                </div>
+            <div class="app-title">
+                <h3>RAGU</h3>
             </div>
         </div>
         
@@ -55,7 +60,39 @@
                 
                 <!-- File Management Interface (hidden by default) -->
                 <div id="file-management" class="content-panel">
-                    <div id="pdf-upload-container"></div>
+                    <div class="file-management-container">
+                        <div class="collections-section">
+                            <div class="section-header">
+                                <h4><i class="bi bi-collection me-2"></i>Collections</h4>
+                                <button class="btn btn-primary btn-sm" id="create-collection-btn">
+                                    <i class="bi bi-plus-circle me-1"></i>New Collection
+                                </button>
+                            </div>
+                            <div id="collections-list" class="collections-list">
+                                <!-- Collections will be loaded here -->
+                            </div>
+                            
+                            <!-- Documents in selected collection -->
+                            <div id="collection-documents" class="collection-documents" style="display: none;">
+                                <div class="section-header">
+                                    <h5><i class="bi bi-file-earmark-text me-2"></i>Documents in <span id="selected-collection-name"></span></h5>
+                                    <button class="btn btn-outline-secondary btn-sm" id="back-to-collections">
+                                        <i class="bi bi-arrow-left me-1"></i>Back
+                                    </button>
+                                </div>
+                                <div id="documents-list" class="documents-list">
+                                    <!-- Documents will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="documents-section">
+                            <div class="section-header">
+                                <h4><i class="bi bi-file-earmark-text me-2"></i>Document Upload</h4>
+                            </div>
+                            <div id="pdf-upload-container"></div>
+                        </div>
+                    </div>
                 </div>
             </main>
         </div>
@@ -68,15 +105,36 @@
     <!-- UI Navigation Script -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            const hamburgerBtn = document.getElementById('hamburger-btn');
+            const navDropdown = document.getElementById('nav-dropdown');
             const chatMenuItem = document.getElementById('chat-menu-item');
             const filesMenuItem = document.getElementById('files-menu-item');
             const chatInterface = document.getElementById('chat-interface');
             const fileManagement = document.getElementById('file-management');
             
+            // Toggle hamburger menu
+            hamburgerBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                navDropdown.classList.toggle('show');
+            });
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function() {
+                navDropdown.classList.remove('show');
+            });
+            
+            // Prevent dropdown from closing when clicking inside
+            navDropdown.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+            
             // Function to set active tab
             function setActiveTab(tabName) {
                 // Save active tab to localStorage
                 localStorage.setItem('activeTab', tabName);
+                
+                // Close dropdown
+                navDropdown.classList.remove('show');
                 
                 if (tabName === 'chat') {
                     chatMenuItem.classList.add('active');
@@ -99,12 +157,146 @@
             // Files menu item click handler
             filesMenuItem.addEventListener('click', function() {
                 setActiveTab('files');
+                loadCollectionsList();
+            });
+            
+            // Load collections list function
+            async function loadCollectionsList() {
+                const collectionsList = document.getElementById('collections-list');
+                
+                try {
+                    const response = await fetch('/api/v1/collections/');
+                    if (response.ok) {
+                        const data = await response.json();
+                        const collections = data.collections || [];
+                        
+                        if (collections.length === 0) {
+                            collectionsList.innerHTML = '<div class="text-muted text-center">No collections found. Create one to get started.</div>';
+                        } else {
+                            collectionsList.innerHTML = collections.map(collection => `
+                                <div class="collection-item" data-collection="${collection}">
+                                    <div class="collection-name">
+                                        <i class="bi bi-collection me-2"></i>${collection}
+                                    </div>
+                                    <div class="collection-stats">
+                                        <small class="text-muted">Click to view documents in this collection</small>
+                                    </div>
+                                </div>
+                            `).join('');
+                            
+                            // Add click event listeners to collection items
+                            document.querySelectorAll('.collection-item').forEach(item => {
+                                item.addEventListener('click', function() {
+                                    const collectionName = this.getAttribute('data-collection');
+                                    showCollectionDocuments(collectionName);
+                                });
+                            });
+                        }
+                    } else {
+                        collectionsList.innerHTML = '<div class="text-danger">Failed to load collections</div>';
+                    }
+                } catch (error) {
+                    console.error('Error loading collections:', error);
+                    collectionsList.innerHTML = '<div class="text-danger">Error loading collections</div>';
+                }
+            }
+            
+            // Create collection functionality
+            const createCollectionBtn = document.getElementById('create-collection-btn');
+            createCollectionBtn.addEventListener('click', async function() {
+                const collectionName = prompt('Enter a name for the new collection:');
+                if (!collectionName) return;
+                
+                try {
+                    const response = await fetch('/api/v1/collections/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            name: collectionName,
+                            description: `Collection created on ${new Date().toLocaleString()}`
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        loadCollectionsList(); // Refresh the list
+                    } else {
+                        const errorData = await response.json();
+                        alert(`Failed to create collection: ${errorData.detail || 'Unknown error'}`);
+                    }
+                } catch (error) {
+                    console.error('Error creating collection:', error);
+                    alert('Error creating collection');
+                }
+            });
+            
+            // Show documents in a collection
+            async function showCollectionDocuments(collectionName) {
+                const collectionsList = document.getElementById('collections-list');
+                const collectionDocuments = document.getElementById('collection-documents');
+                const selectedCollectionName = document.getElementById('selected-collection-name');
+                const documentsList = document.getElementById('documents-list');
+                
+                // Hide collections list and show documents view
+                collectionsList.style.display = 'none';
+                collectionDocuments.style.display = 'block';
+                selectedCollectionName.textContent = collectionName;
+                
+                // Load documents
+                documentsList.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm" role="status"></div><span class="ms-2">Loading documents...</span></div>';
+                
+                try {
+                    const response = await fetch(`/api/v1/documents/${collectionName}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        const documents = data.documents || [];
+                        
+                        if (documents.length === 0) {
+                            documentsList.innerHTML = '<div class="text-muted text-center">No documents found in this collection.</div>';
+                        } else {
+                            documentsList.innerHTML = documents.map(doc => `
+                                <div class="document-item">
+                                    <div class="document-name">
+                                        <i class="bi bi-file-earmark-text me-2"></i>${doc.metadata.source}
+                                    </div>
+                                    <div class="document-info">
+                                        ${doc.metadata.total_chunks} chunks
+                                        ${doc.metadata.tags && doc.metadata.tags.length > 0 ? `• ${doc.metadata.tags.length} tags` : ''}
+                                    </div>
+                                    ${doc.metadata.tags && doc.metadata.tags.length > 0 ? `
+                                        <div class="document-tags">
+                                            ${doc.metadata.tags.map(tag => `<span class="document-tag">${tag}</span>`).join('')}
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `).join('');
+                        }
+                    } else {
+                        documentsList.innerHTML = '<div class="text-danger">Failed to load documents</div>';
+                    }
+                } catch (error) {
+                    console.error('Error loading documents:', error);
+                    documentsList.innerHTML = '<div class="text-danger">Error loading documents</div>';
+                }
+            }
+            
+            // Back to collections button
+            const backToCollectionsBtn = document.getElementById('back-to-collections');
+            backToCollectionsBtn.addEventListener('click', function() {
+                const collectionsList = document.getElementById('collections-list');
+                const collectionDocuments = document.getElementById('collection-documents');
+                
+                // Show collections list and hide documents view
+                collectionsList.style.display = 'block';
+                collectionDocuments.style.display = 'none';
             });
             
             // Check localStorage for active tab on page load
             const activeTab = localStorage.getItem('activeTab');
             if (activeTab === 'files') {
                 setActiveTab('files');
+                loadCollectionsList();
             } else {
                 // Default to chat tab if no saved preference or 'chat' is saved
                 setActiveTab('chat');
