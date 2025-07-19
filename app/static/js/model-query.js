@@ -24,7 +24,7 @@ const ModelQueryComponent = {
             <!-- Conversation history - Primary visual element -->
             <div class="conversation-wrapper">
                 <div v-if="conversationHistory.length > 0" class="conversation-history">
-                    <div class="conversation-container p-3 border rounded bg-light">
+                    <div class="conversation-container p-3">
                         <div v-for="(message, index) in conversationHistory" :key="index" 
                              :class="['message mb-2 p-2 rounded', message.role === 'user' ? 'user-message text-end' : 'assistant-message']">
                             <div class="message-header mb-1">
@@ -278,12 +278,8 @@ const ModelQueryComponent = {
             isLoading.value = true;
             error.value = '';
             
-            // Add user message to conversation history
-            const userMessage = {
-                role: 'user',
-                content: queryText.value
-            };
-            conversationHistory.value.push(userMessage);
+            // We don't need to add the user message to conversation history here
+            // because the backend will add it to the history it returns
             
             // Scroll to the bottom of the conversation container
             setTimeout(() => {
@@ -343,9 +339,6 @@ const ModelQueryComponent = {
                         resultsContainer.innerHTML = '';
                     }
                 } else {
-                    // If there's an error, remove the user message from history
-                    conversationHistory.value.pop();
-                    
                     // Restore the query text
                     queryText.value = currentQuery;
                     
@@ -353,9 +346,6 @@ const ModelQueryComponent = {
                     error.value = errorData.detail || 'Failed to process query. Please try again.';
                 }
             } catch (err) {
-                // If there's an error, remove the user message from history
-                conversationHistory.value.pop();
-                
                 console.error('Error submitting query:', err);
                 error.value = `Error submitting query: ${err.message}`;
             } finally {
