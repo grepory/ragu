@@ -19,10 +19,57 @@ const { createApp, ref, onMounted, computed, watch } = Vue;
 const ModelQueryComponent = {
     template: `
         <div class="model-query-component">
-<!--            <h3><i class="bi bi-chat-left-text me-2"></i>Chat with Documents</h3>-->
+            <!-- Conversation List Modal -->
+            <div v-if="showConversationList" class="conversation-list-modal">
+                <div class="conversation-list-header">
+                    <h4><i class="bi bi-chat-left-text me-2"></i>Conversations</h4>
+                    <button class="btn btn-sm btn-outline-secondary" @click="startNewConversation">
+                        <i class="bi bi-plus-circle me-1"></i>New Conversation
+                    </button>
+                </div>
+                
+                <div v-if="isLoadingConversations" class="text-center p-4">
+                    <div class="loading-spinner"></div>
+                    <p class="mt-2">Loading conversations...</p>
+                </div>
+                
+                <div v-else-if="conversations.length === 0" class="text-center text-muted p-4">
+                    <i class="bi bi-chat-square-text fs-2"></i>
+                    <p class="mt-2">No conversations yet</p>
+                    <button class="btn btn-primary mt-2" @click="startNewConversation">
+                        Start a new conversation
+                    </button>
+                </div>
+                
+                <div v-else class="conversation-list">
+                    <div v-for="conversation in conversations" :key="conversation.id" 
+                         class="conversation-item p-3 mb-2" 
+                         @click="selectConversation(conversation.id)">
+                        <div class="conversation-title">
+                            <i class="bi bi-chat-text me-2"></i>
+                            {{ conversation.title }}
+                        </div>
+                        <div class="conversation-meta">
+                            <small class="text-muted">
+                                {{ new Date(conversation.updated_at).toLocaleString() }}
+                                <span class="ms-2">{{ conversation.messages.length }} messages</span>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
             
             <!-- Conversation history - Primary visual element -->
-            <div class="conversation-wrapper">
+            <div v-if="!showConversationList" class="conversation-wrapper">
+                <div class="conversation-header">
+                    <button class="btn btn-sm btn-outline-secondary" @click="toggleConversationList">
+                        <i class="bi bi-list me-1"></i>Conversations
+                    </button>
+                    <span v-if="currentConversationId" class="conversation-title">
+                        {{ conversations.find(c => c.id === currentConversationId)?.title || 'Current Conversation' }}
+                    </span>
+                </div>
+                
                 <div v-if="conversationHistory.length > 0" class="conversation-history">
                     <div class="conversation-container p-3">
                         <div v-for="(message, index) in conversationHistory" :key="index" 
@@ -160,6 +207,10 @@ const ModelQueryComponent = {
         const results = ref(null);
         const conversationHistory = ref([]);
         const lastSources = ref([]);
+        const conversations = ref([]);
+        const currentConversationId = ref(null);
+        const showConversationList = ref(false);
+        const isLoadingConversations = ref(false);
         
         // Local storage keys for persistence
         const STORAGE_KEY_COLLECTION = 'ragu_selected_collection';
@@ -186,6 +237,10 @@ const ModelQueryComponent = {
             
             // Note: We'll apply the saved collection after collections are loaded
             // This happens in the fetchCollections function
+            
+            // Show conversation list when chat is first opened
+            fetchConversations();
+            showConversationList.value = true;
         });
         
         // Watch for changes to selectedCollection and save to localStorage
@@ -263,6 +318,90 @@ const ModelQueryComponent = {
             }
         };
         
+        // Fetch conversations from API
+        const fetchConversations = async () => {
+            isLoadingConversations.value = true;
+            error.value = '';
+            
+            try {
+                const response = await fetch('/api/v1/conversations/');
+                if (response.ok) {
+                    const data = await response.json();
+                    conversations.value = data.conversations || [];
+                } else {
+                    console.error('Failed to fetch conversations');
+                    error.value = 'Failed to fetch conversations. Please try again.';
+                }
+            } catch (err) {
+                console.error('Error fetching conversations:', err);
+                error.value = `Error fetching conversations: ${err.message}`;
+            } finally {
+                isLoadingConversations.value = false;
+            }
+        };
+        
+        // Select a conversation
+        const selectConversation = async (conversationId) => {
+            try {
+                const response = await fetch(`/api/v1/conversations/${conversationId}`);
+                if (response.ok) {
+                    const conversation = await response.json();
+                    
+                    // Set the current conversation ID
+                    currentConversationId.value = conversationId;
+                    
+                    // Set the conversation history
+                    conversationHistory.value = conversation.messages;
+                    
+                    // Set the collection and model if available
+                    if (conversation.collection_name) {
+                        selectedCollection.value = conversation.collection_name;
+                    }
+                    
+                    if (conversation.model) {
+                        selectedModel.value = conversation.model;
+                    }
+                    
+                    // Hide the conversation list
+                    showConversationList.value = false;
+                    
+                    // Scroll to the bottom of the conversation container
+                    setTimeout(() => {
+                        const container = document.querySelector('.conversation-container');
+                        if (container) {
+                            container.scrollTop = container.scrollHeight;
+                        }
+                    }, 50);
+                } else {
+                    const errorData = await response.json();
+                    error.value = `Failed to load conversation: ${errorData.detail || 'Unknown error'}`;
+                }
+            } catch (err) {
+                console.error('Error loading conversation:', err);
+                error.value = `Error loading conversation: ${err.message}`;
+            }
+        };
+        
+        // Start a new conversation
+        const startNewConversation = () => {
+            // Clear the current conversation
+            currentConversationId.value = null;
+            conversationHistory.value = [];
+            
+            // Hide the conversation list
+            showConversationList.value = false;
+        };
+        
+        // Toggle conversation list
+        const toggleConversationList = () => {
+            showConversationList.value = !showConversationList.value;
+            
+            // If showing the conversation list, fetch the latest conversations
+            if (showConversationList.value) {
+                fetchConversations();
+            }
+        };
+        
         // Handle Enter key press
         const handleEnterKey = (event) => {
             // Only submit if not pressing shift+enter (which should create a new line)
@@ -302,6 +441,11 @@ const ModelQueryComponent = {
                     requestData.model = selectedModel.value;
                 }
                 
+                // Add conversation ID if we're continuing a conversation
+                if (currentConversationId.value) {
+                    requestData.conversation_id = currentConversationId.value;
+                }
+                
                 // Clear the query text
                 const currentQuery = queryText.value;
                 queryText.value = '';
@@ -324,6 +468,11 @@ const ModelQueryComponent = {
                     
                     // Update last sources
                     lastSources.value = data.sources;
+                    
+                    // Update current conversation ID if provided
+                    if (data.conversation_id) {
+                        currentConversationId.value = data.conversation_id;
+                    }
                     
                     // Scroll to the bottom of the conversation container
                     setTimeout(() => {
@@ -364,10 +513,18 @@ const ModelQueryComponent = {
             results,
             conversationHistory,
             lastSources,
+            conversations,
+            currentConversationId,
+            showConversationList,
+            isLoadingConversations,
             canSubmit,
             submitQuery,
             handleEnterKey,
-            createCollection
+            createCollection,
+            fetchConversations,
+            selectConversation,
+            startNewConversation,
+            toggleConversationList
         };
     }
 };

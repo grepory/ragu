@@ -2,9 +2,11 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, De
 from typing import List, Dict, Any, Optional
 import json
 
-from app.models.schemas import ChatRequest, ChatResponse, ChatMessage
+from app.models.schemas import ChatRequest, ChatResponse, ChatMessage, ConversationCreate
 from app.db.chroma_client import chroma_client
+from app.db.conversation_store import conversation_store
 from app.services.llm_service import llm_service, StreamingCallbackHandler
+from app.api.routes.conversations import generate_title_from_messages
 
 router = APIRouter()
 
@@ -34,6 +36,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     query = message.get("query")
                     history_data = message.get("history", [])
                     model = message.get("model")
+                    conversation_id = message.get("conversation_id")
                     
                     # Validate required fields
                     if not collection_name or not query:
@@ -52,12 +55,30 @@ async def websocket_endpoint(websocket: WebSocket):
                         })
                         continue
                     
-                    # Convert history data to ChatMessage objects
-                    history = [
-                        ChatMessage(role=msg.get("role"), content=msg.get("content"))
-                        for msg in history_data
-                        if msg.get("role") and msg.get("content")
-                    ] if history_data else None
+                    # Initialize history
+                    history = None
+                    
+                    # If conversation_id is provided, load the existing conversation
+                    if conversation_id:
+                        conversation = conversation_store.get_conversation(conversation_id)
+                        if not conversation:
+                            await websocket.send_json({
+                                "type": "error",
+                                "content": f"Conversation {conversation_id} not found"
+                            })
+                            continue
+                        # Use the conversation's history if no history is provided
+                        if not history_data:
+                            history = conversation.messages
+                    
+                    # If no history from conversation, use provided history
+                    if not history:
+                        # Convert history data to ChatMessage objects
+                        history = [
+                            ChatMessage(role=msg.get("role"), content=msg.get("content"))
+                            for msg in history_data
+                            if msg.get("role") and msg.get("content")
+                        ] if history_data else None
                     
                     # Create streaming callback handler
                     callback_handler = StreamingCallbackHandler(websocket)
@@ -78,6 +99,32 @@ async def websocket_endpoint(websocket: WebSocket):
                         callback_handler=callback_handler
                     )
                     
+                    # Save or update the conversation
+                    updated_history = response_data["history"]
+                    
+                    if conversation_id:
+                        # Update existing conversation
+                        conversation_store.update_conversation(
+                            conversation_id,
+                            update={"messages": updated_history}
+                        )
+                    else:
+                        # Create a new conversation
+                        new_conversation = ConversationCreate(
+                            collection_name=collection_name,
+                            model=model,
+                            messages=updated_history
+                        )
+                        
+                        # Generate a title for the new conversation
+                        if len(updated_history) >= 2:  # At least one exchange (user + assistant)
+                            title = await generate_title_from_messages(updated_history, model)
+                            new_conversation.title = title
+                        
+                        # Save the new conversation
+                        saved_conversation = conversation_store.create_conversation(new_conversation)
+                        conversation_id = saved_conversation.id
+                    
                     # Send complete response
                     await websocket.send_json({
                         "type": "complete",
@@ -87,7 +134,8 @@ async def websocket_endpoint(websocket: WebSocket):
                             "history": [
                                 {"role": msg.role, "content": msg.content}
                                 for msg in response_data["history"]
-                            ]
+                            ],
+                            "conversation_id": conversation_id
                         }
                     })
                 
@@ -145,18 +193,61 @@ async def chat(request: ChatRequest):
                 detail=f"Collection '{request.collection_name}' not found"
             )
         
+        # Initialize history
+        history = request.history or []
+        conversation_id = request.conversation_id
+        
+        # If conversation_id is provided, load the existing conversation
+        if conversation_id:
+            conversation = conversation_store.get_conversation(conversation_id)
+            if not conversation:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Conversation {conversation_id} not found"
+                )
+            # Use the conversation's history if no history is provided
+            if not request.history:
+                history = conversation.messages
+        
         # Generate RAG response
         response_data = await llm_service.generate_rag_response(
             query=request.query,
             collection_name=request.collection_name,
-            history=request.history,
+            history=history,
             model=request.model
         )
+        
+        # Save or update the conversation
+        updated_history = response_data["history"]
+        
+        if conversation_id:
+            # Update existing conversation
+            conversation_store.update_conversation(
+                conversation_id,
+                update={"messages": updated_history}
+            )
+        else:
+            # Create a new conversation
+            new_conversation = ConversationCreate(
+                collection_name=request.collection_name,
+                model=request.model,
+                messages=updated_history
+            )
+            
+            # Generate a title for the new conversation
+            if len(updated_history) >= 2:  # At least one exchange (user + assistant)
+                title = await generate_title_from_messages(updated_history, request.model)
+                new_conversation.title = title
+            
+            # Save the new conversation
+            saved_conversation = conversation_store.create_conversation(new_conversation)
+            conversation_id = saved_conversation.id
         
         return ChatResponse(
             answer=response_data["answer"],
             sources=response_data["sources"],
-            history=response_data["history"]
+            history=response_data["history"],
+            conversation_id=conversation_id
         )
     
     except HTTPException:
