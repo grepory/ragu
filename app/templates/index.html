@@ -451,6 +451,7 @@
                 if (!searchQuery.trim() && popularTags.length > 0) {
                     html += '<div class="popular-tags-section">';
                     html += '<div class="popular-tags-header">Popular</div>';
+                    html += '<div class="tag-items-grid">';
                     popularTags.forEach(tag => {
                         html += `
                             <div class="tag-filter-item" data-tag="${tag}">
@@ -459,12 +460,14 @@
                             </div>
                         `;
                     });
+                    html += '</div>'; // Close tag-items-grid
                     html += '<div class="tags-separator"></div>';
                     html += '</div>';
                 }
                 
                 // Add regular tags
                 if (regularTags.length > 0) {
+                    html += '<div class="tag-items-grid">';
                     regularTags.forEach(tag => {
                         html += `
                             <div class="tag-filter-item" data-tag="${tag}">
@@ -473,6 +476,7 @@
                             </div>
                         `;
                     });
+                    html += '</div>'; // Close tag-items-grid
                 } else if (searchQuery.trim()) {
                     html += '<div class="no-tags-found">No tags found matching "' + searchQuery + '"</div>';
                 }
