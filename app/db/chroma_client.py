@@ -478,6 +478,58 @@ class ChromaClient:
         """
         return self.delete_documents_by_source(self.DOCUMENTS_COLLECTION, source)
     
+    def update_document_metadata_by_source(self, source: str, new_metadata: Dict[str, Any]) -> int:
+        """Update metadata for all document chunks with the given source filename.
+        
+        Args:
+            source: Source filename to update
+            new_metadata: New metadata to set (tags will be converted to string)
+            
+        Returns:
+            Number of document chunks updated
+        """
+        try:
+            collection = self.get_documents_collection()
+            
+            # Get all documents in the collection
+            result = collection.get()
+            
+            if not result or not result["ids"]:
+                return 0
+            
+            # Find documents with matching source
+            ids_to_update = []
+            metadatas_to_update = []
+            
+            for i, doc_id in enumerate(result["ids"]):
+                metadata = result["metadatas"][i] if result.get("metadatas") else {}
+                
+                if metadata.get("source") == source:
+                    # Update metadata while preserving other fields
+                    updated_metadata = metadata.copy()
+                    
+                    # Convert tags list to comma-separated string for ChromaDB storage
+                    for key, value in new_metadata.items():
+                        if key == "tags" and isinstance(value, list):
+                            updated_metadata[key] = ",".join(value) if value else ""
+                        else:
+                            updated_metadata[key] = value
+                    
+                    ids_to_update.append(doc_id)
+                    metadatas_to_update.append(updated_metadata)
+            
+            if ids_to_update:
+                collection.update(
+                    ids=ids_to_update,
+                    metadatas=metadatas_to_update
+                )
+            
+            return len(ids_to_update)
+            
+        except Exception as e:
+            print(f"Error updating document metadata: {e}")
+            raise
+    
     def migrate_documents_to_main_collection(self, copy_from_collections: List[str] = None) -> Dict[str, int]:
         """Migrate documents from old collections to the main collection.
         

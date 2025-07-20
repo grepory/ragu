@@ -50,6 +50,12 @@ class DeleteDocumentRequest(BaseModel):
     source: str = Field(..., description="Source filename to delete")
 
 
+class UpdateDocumentTagsRequest(BaseModel):
+    """Schema for updating document tags request."""
+    source: str = Field(..., description="Source filename to update")
+    tags: List[str] = Field(..., description="New tags for the document")
+
+
 class TextInput(BaseModel):
     """Schema for text input."""
     text: str = Field(..., description="Text content to process")

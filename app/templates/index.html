@@ -254,7 +254,7 @@
                     }
                     
                     return `
-                        <div class="document-item" data-tags="${JSON.stringify(doc.metadata.tags || [])}">
+                        <div class="document-item" data-tags="${JSON.stringify(doc.metadata.tags || [])}" data-source="${doc.metadata.source}">
                             <div class="document-content">
                                 <div class="document-name">
                                     <i class="bi bi-file-earmark-text me-2"></i>${displayName}
@@ -263,15 +263,33 @@
                                     ${doc.metadata.total_chunks} chunks
                                     ${doc.metadata.tags && doc.metadata.tags.length > 0 ? `• ${doc.metadata.tags.length} tags` : '• No tags'}
                                 </div>
-                                ${doc.metadata.tags && doc.metadata.tags.length > 0 ? `
-                                    <div class="document-tags">
-                                        ${doc.metadata.tags.map(tag => `<span class="document-tag">${tag}</span>`).join('')}
+                                <div class="document-tags-section">
+                                    <div class="document-tags-display" ${doc.metadata.tags && doc.metadata.tags.length > 0 ? '' : 'style="display: none;"'}>
+                                        ${doc.metadata.tags && doc.metadata.tags.length > 0 ? `
+                                            <div class="document-tags">
+                                                ${doc.metadata.tags.map(tag => `<span class="document-tag">${tag}</span>`).join('')}
+                                            </div>
+                                        ` : ''}
                                     </div>
-                                ` : ''}
+                                    <div class="document-tags-edit" style="display: none;">
+                                        <input type="text" class="form-control form-control-sm tag-input" 
+                                               placeholder="Enter tags separated by commas" 
+                                               value="${doc.metadata.tags ? doc.metadata.tags.join(', ') : ''}">
+                                    </div>
+                                    <div class="no-tags-message" ${doc.metadata.tags && doc.metadata.tags.length > 0 ? 'style="display: none;"' : ''}>
+                                        <small class="text-muted">No tags assigned</small>
+                                    </div>
+                                </div>
                             </div>
                             <div class="document-actions">
+                                <button class="btn btn-outline-secondary btn-sm edit-tags-btn" 
+                                        data-source="${doc.metadata.source}"
+                                        title="Edit tags">
+                                    <i class="bi bi-tags"></i>
+                                </button>
                                 <button class="btn btn-outline-danger btn-sm delete-document-btn" 
-                                        data-source="${doc.metadata.source}">
+                                        data-source="${doc.metadata.source}"
+                                        title="Delete document">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </div>
@@ -279,12 +297,40 @@
                     `;
                 }).join('');
                 
-                // Add click event listeners to delete buttons
+                // Add click event listeners to edit and delete buttons
+                document.querySelectorAll('.edit-tags-btn').forEach(button => {
+                    button.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const source = this.getAttribute('data-source');
+                        toggleTagEdit(source);
+                    });
+                });
+                
                 document.querySelectorAll('.delete-document-btn').forEach(button => {
                     button.addEventListener('click', function(e) {
                         e.stopPropagation();
                         const source = this.getAttribute('data-source');
                         deleteDocument(source);
+                    });
+                });
+                
+                // Add event listeners for tag input fields
+                document.querySelectorAll('.tag-input').forEach(input => {
+                    input.addEventListener('keydown', function(e) {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const source = this.closest('.document-item').getAttribute('data-source');
+                            saveDocumentTags(source);
+                        } else if (e.key === 'Escape') {
+                            e.preventDefault();
+                            const source = this.closest('.document-item').getAttribute('data-source');
+                            cancelTagEdit(source);
+                        }
+                    });
+                    
+                    input.addEventListener('blur', function() {
+                        const source = this.closest('.document-item').getAttribute('data-source');
+                        saveDocumentTags(source);
                     });
                 });
             }
@@ -345,6 +391,143 @@
                 // Show count of visible documents
                 const visibleCount = Array.from(documentItems).filter(item => item.style.display !== 'none').length;
                 console.log(`Showing ${visibleCount} of ${documentItems.length} documents`);
+            }
+            
+            // Toggle tag editing mode for a document
+            function toggleTagEdit(source) {
+                const documentItem = document.querySelector(`[data-source="${source}"]`);
+                if (!documentItem) return;
+                
+                const tagsDisplay = documentItem.querySelector('.document-tags-display');
+                const tagsEdit = documentItem.querySelector('.document-tags-edit');
+                const noTagsMessage = documentItem.querySelector('.no-tags-message');
+                const editBtn = documentItem.querySelector('.edit-tags-btn');
+                const tagInput = documentItem.querySelector('.tag-input');
+                
+                if (tagsEdit.style.display === 'none') {
+                    // Enter edit mode
+                    tagsDisplay.style.display = 'none';
+                    noTagsMessage.style.display = 'none';
+                    tagsEdit.style.display = 'block';
+                    editBtn.innerHTML = '<i class="bi bi-check-lg"></i>';
+                    editBtn.title = 'Save changes';
+                    editBtn.classList.remove('btn-outline-secondary');
+                    editBtn.classList.add('btn-outline-success');
+                    tagInput.focus();
+                } else {
+                    // Save and exit edit mode
+                    saveDocumentTags(source);
+                }
+            }
+            
+            // Cancel tag editing
+            function cancelTagEdit(source) {
+                const documentItem = document.querySelector(`[data-source="${source}"]`);
+                if (!documentItem) return;
+                
+                const tagsDisplay = documentItem.querySelector('.document-tags-display');
+                const tagsEdit = documentItem.querySelector('.document-tags-edit');
+                const noTagsMessage = documentItem.querySelector('.no-tags-message');
+                const editBtn = documentItem.querySelector('.edit-tags-btn');
+                const currentTags = JSON.parse(documentItem.getAttribute('data-tags') || '[]');
+                const tagInput = documentItem.querySelector('.tag-input');
+                
+                // Restore original tags in input
+                tagInput.value = currentTags.join(', ');
+                
+                // Exit edit mode
+                tagsEdit.style.display = 'none';
+                if (currentTags.length > 0) {
+                    tagsDisplay.style.display = 'block';
+                } else {
+                    noTagsMessage.style.display = 'block';
+                }
+                editBtn.innerHTML = '<i class="bi bi-tags"></i>';
+                editBtn.title = 'Edit tags';
+                editBtn.classList.remove('btn-outline-success');
+                editBtn.classList.add('btn-outline-secondary');
+            }
+            
+            // Save document tags
+            async function saveDocumentTags(source) {
+                const documentItem = document.querySelector(`[data-source="${source}"]`);
+                if (!documentItem) return;
+                
+                const tagInput = documentItem.querySelector('.tag-input');
+                const tagsString = tagInput.value.trim();
+                const newTags = tagsString ? tagsString.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0) : [];
+                
+                try {
+                    // Update tags via API
+                    const response = await fetch('/api/v1/documents/tags', {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            source: source,
+                            tags: newTags
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        // Update the document item's data and display
+                        documentItem.setAttribute('data-tags', JSON.stringify(newTags));
+                        updateDocumentTagsDisplay(documentItem, newTags);
+                        
+                        // Exit edit mode
+                        const tagsDisplay = documentItem.querySelector('.document-tags-display');
+                        const tagsEdit = documentItem.querySelector('.document-tags-edit');
+                        const noTagsMessage = documentItem.querySelector('.no-tags-message');
+                        const editBtn = documentItem.querySelector('.edit-tags-btn');
+                        
+                        tagsEdit.style.display = 'none';
+                        if (newTags.length > 0) {
+                            tagsDisplay.style.display = 'block';
+                            noTagsMessage.style.display = 'none';
+                        } else {
+                            tagsDisplay.style.display = 'none';
+                            noTagsMessage.style.display = 'block';
+                        }
+                        editBtn.innerHTML = '<i class="bi bi-tags"></i>';
+                        editBtn.title = 'Edit tags';
+                        editBtn.classList.remove('btn-outline-success');
+                        editBtn.classList.add('btn-outline-secondary');
+                        
+                        // Update document info
+                        const documentInfo = documentItem.querySelector('.document-info');
+                        const chunks = documentInfo.textContent.match(/(\d+) chunks/)[1];
+                        documentInfo.textContent = `${chunks} chunks • ${newTags.length > 0 ? newTags.length + ' tags' : 'No tags'}`;
+                        
+                        // Refresh tag filters
+                        await loadTagFilters();
+                        
+                        console.log(`Updated tags for ${source}: [${newTags.join(', ')}]`);
+                    } else {
+                        const errorData = await response.json();
+                        alert(`Failed to update tags: ${errorData.detail || 'Unknown error'}`);
+                    }
+                } catch (error) {
+                    console.error('Error updating document tags:', error);
+                    alert(`Error updating tags: ${error.message}`);
+                }
+            }
+            
+            // Update the visual display of document tags
+            function updateDocumentTagsDisplay(documentItem, tags) {
+                const tagsDisplay = documentItem.querySelector('.document-tags-display');
+                const documentTags = documentItem.querySelector('.document-tags');
+                
+                if (tags.length > 0) {
+                    const tagsHtml = tags.map(tag => `<span class="document-tag">${tag}</span>`).join('');
+                    if (documentTags) {
+                        documentTags.innerHTML = tagsHtml;
+                    } else {
+                        tagsDisplay.innerHTML = `<div class="document-tags">${tagsHtml}</div>`;
+                    }
+                } else {
+                    tagsDisplay.innerHTML = '';
+                }
             }
             
             // Create collection functionality (deprecated but kept for compatibility)

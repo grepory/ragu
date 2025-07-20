@@ -10,7 +10,8 @@ from app.models.schemas import (
     QueryRequest,
     QueryResponse,
     QueryResult,
-    DeleteDocumentRequest
+    DeleteDocumentRequest,
+    UpdateDocumentTagsRequest
 )
 from app.db.chroma_client import chroma_client
 from app.utils.document_processor import document_processor
@@ -607,4 +608,40 @@ async def query_documents(query: QueryRequest):
         raise HTTPException(
             status_code=500,
             detail=f"Failed to query documents: {str(e)}"
+        )
+
+
+@router.put("/tags")
+async def update_document_tags(request: UpdateDocumentTagsRequest):
+    """Update tags for a document by source filename.
+    
+    Args:
+        request: JSON body containing source filename and new tags
+    """
+    try:
+        # Update document metadata with new tags
+        updated_count = chroma_client.update_document_metadata_by_source(
+            source=request.source,
+            new_metadata={"tags": request.tags}
+        )
+        
+        if updated_count == 0:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No documents found with source '{request.source}'"
+            )
+        
+        return {
+            "status": "success",
+            "message": f"Updated tags for document '{request.source}'",
+            "chunks_updated": updated_count,
+            "new_tags": request.tags
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update document tags: {str(e)}"
         )
