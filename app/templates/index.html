@@ -290,7 +290,7 @@
                                     <div class="document-tags-display" ${doc.metadata.tags && doc.metadata.tags.length > 0 ? '' : 'style="display: none;"'}>
                                         ${doc.metadata.tags && doc.metadata.tags.length > 0 ? `
                                             <div class="document-tags">
-                                                ${doc.metadata.tags.map(tag => `<span class="document-tag">${tag}</span>`).join('')}
+                                                ${doc.metadata.tags.map(tag => `<span class="document-tag" title="${tag}">${tag}</span>`).join('')}
                                             </div>
                                         ` : ''}
                                     </div>
@@ -656,7 +656,7 @@
                 const documentTags = documentItem.querySelector('.document-tags');
                 
                 if (tags.length > 0) {
-                    const tagsHtml = tags.map(tag => `<span class="document-tag">${tag}</span>`).join('');
+                    const tagsHtml = tags.map(tag => `<span class="document-tag" title="${tag}">${tag}</span>`).join('');
                     if (documentTags) {
                         documentTags.innerHTML = tagsHtml;
                     } else {
@@ -847,7 +847,7 @@
                                             </div>
                                             ${doc.metadata.tags && doc.metadata.tags.length > 0 ? `
                                                 <div class="document-tags">
-                                                    ${doc.metadata.tags.map(tag => `<span class="document-tag">${tag}</span>`).join('')}
+                                                    ${doc.metadata.tags.map(tag => `<span class="document-tag" title="${tag}">${tag}</span>`).join('')}
                                                 </div>
                                             ` : ''}
                                         </div>
