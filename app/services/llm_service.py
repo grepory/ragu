@@ -420,6 +420,111 @@ class LLMService:
             "sources": sources,
             "history": updated_history
         }
+    
+    async def generate_rag_response_by_tags(
+        self,
+        query: str,
+        tags: Optional[List[str]] = None,
+        include_untagged: bool = True,
+        history: Optional[List[ChatMessage]] = None,
+        model: Optional[str] = None,
+        streaming: bool = False,
+        callback_handler: Optional[StreamingCallbackHandler] = None,
+        n_results: int = 5
+    ) -> Dict[str, Any]:
+        """Generate RAG response using tag-based document filtering.
+        
+        Args:
+            query: User query
+            tags: List of tags to filter documents by
+            include_untagged: Whether to include untagged documents
+            history: Optional chat history
+            model: Optional model name or provider:model
+            streaming: Whether to stream responses
+            callback_handler: Callback handler for streaming
+            n_results: Number of results to retrieve from vector DB
+            
+        Returns:
+            Response data with answer and sources
+        """
+        # Query vector database using tag-based filtering
+        results = chroma_client.query_by_tags(
+            query_text=query,
+            tags=tags,
+            include_untagged=include_untagged,
+            n_results=n_results
+        )
+        
+        # Extract context from results
+        context_texts = []
+        sources = []
+        
+        if results and results.get("ids") and results.get("ids")[0]:
+            for i in range(len(results["ids"][0])):
+                doc_id = results["ids"][0][i]
+                text = results["documents"][0][i] if results.get("documents") and results["documents"][0] else ""
+                metadata = results["metadatas"][0][i] if results.get("metadatas") and results["metadatas"][0] else {}
+                
+                if text:
+                    context_texts.append(f"[Document {i+1}]: {text}")
+                    sources.append({
+                        "id": doc_id,
+                        "text": text[:100] + "..." if len(text) > 100 else text,
+                        "metadata": metadata
+                    })
+        
+        # Combine context texts
+        context = "\n\n".join(context_texts) if context_texts else "No relevant information found."
+        
+        # Get LLM
+        llm = self.get_llm(model=model, streaming=streaming, callback_handler=callback_handler)
+        
+        # Create prompt
+        prompt = PromptTemplate(template=RAG_SYSTEM_PROMPT)
+        
+        # Format conversation history if provided
+        conversation_history_text = ""
+        if history and len(history) > 0:
+            conversation_history_text = "Previous conversation:\n"
+            for msg in history:
+                if msg.role == "user":
+                    conversation_history_text += f"User: {msg.content}\n"
+                elif msg.role == "assistant":
+                    conversation_history_text += f"Assistant: {msg.content}\n"
+        
+        # Format the prompt with context, conversation history, and query
+        formatted_prompt = prompt.format(
+            context=context,
+            conversation_history=conversation_history_text,
+            query=query
+        )
+        
+        # Generate response
+        if streaming:
+            # For streaming, we need to collect all tokens
+            response_text = ""
+            async for token in await llm.astream_complete(formatted_prompt):
+                response_text += token.delta
+            response = response_text
+        else:
+            # For non-streaming, we can just get the complete response
+            response = await llm.acomplete(formatted_prompt)
+            response = response.text
+        
+        # Update history if provided
+        updated_history = []
+        if history:
+            updated_history = history.copy()
+        
+        # Add current exchange to history
+        updated_history.append(ChatMessage(role="user", content=query))
+        updated_history.append(ChatMessage(role="assistant", content=response))
+        
+        return {
+            "answer": response,
+            "sources": sources,
+            "history": updated_history
+        }
 
 
 # Create a singleton instance

@@ -7,6 +7,275 @@
 
 /* Custom styles for RAGU front-end */
 
+/* Tag selection styles - Themed for RAGU */
+.tag-dropdown {
+    flex: 2;
+    min-width: 200px;
+}
+
+.tag-dropdown .form-label {
+    color: var(--salon-drab);
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+}
+
+.tag-selection-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    background-color: var(--joas-white);
+    border: 1px solid rgba(73, 65, 53, 0.2);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.tag-checkboxes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    max-height: 7rem;
+    overflow-y: auto;
+    padding: 0.5rem;
+    background-color: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(73, 65, 53, 0.15);
+    border-radius: 0.375rem;
+}
+
+.tag-checkboxes::-webkit-scrollbar {
+    width: 6px;
+}
+
+.tag-checkboxes::-webkit-scrollbar-track {
+    background: rgba(73, 65, 53, 0.1);
+    border-radius: 3px;
+}
+
+.tag-checkboxes::-webkit-scrollbar-thumb {
+    background: var(--oxford-stone);
+    border-radius: 3px;
+}
+
+.tag-checkboxes::-webkit-scrollbar-thumb:hover {
+    background: var(--salon-drab);
+}
+
+.tag-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    background-color: var(--joas-white);
+    border: 2px solid var(--oxford-stone);
+    border-radius: 1.25rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    color: var(--salon-drab);
+}
+
+.tag-checkbox:hover {
+    background-color: var(--joas-white);
+    border-color: var(--salon-drab);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    color: var(--salon-drab);
+}
+
+.tag-checkbox:has(input:checked) {
+    background-color: var(--salon-drab);
+    color: var(--joas-white);
+    border-color: var(--salon-drab);
+    box-shadow: 0 2px 6px rgba(73, 65, 53, 0.3);
+}
+
+.tag-checkbox:has(input:checked):hover {
+    background-color: #3a3328;
+    border-color: #3a3328;
+}
+
+.tag-checkbox input[type="checkbox"] {
+    margin: 0;
+    width: 14px;
+    height: 14px;
+    accent-color: var(--joas-white);
+}
+
+.tag-checkbox label {
+    cursor: pointer;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: inherit;
+}
+
+.tag-count {
+    font-size: 0.7rem;
+    opacity: 1;
+    font-weight: 400;
+    background-color: rgba(73, 65, 53, 0.15);
+    color: var(--salon-drab);
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.75rem;
+    margin-left: 0.25rem;
+}
+
+.tag-checkbox:has(input:checked) .tag-count {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: var(--joas-white);
+}
+
+.tag-options {
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(73, 65, 53, 0.2);
+}
+
+.tag-options .form-check {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.tag-options .form-check-input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--salon-drab);
+}
+
+.tag-options .form-check-label {
+    color: var(--salon-drab);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    margin: 0;
+}
+
+/* Empty state styling */
+.tag-dropdown .form-text {
+    color: var(--salon-drab);
+    font-size: 0.75rem;
+    text-align: center;
+    padding: 1rem;
+    background-color: rgba(73, 65, 53, 0.05);
+    border-radius: 0.375rem;
+    border: 1px dashed rgba(73, 65, 53, 0.2);
+}
+
+/* File management interface styles */
+.upload-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.tag-filter-section {
+    background-color: var(--joas-white);
+    border: 1px solid rgba(73, 65, 53, 0.2);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.tag-filter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.tag-filter-header h6 {
+    margin: 0;
+    color: var(--salon-drab);
+    font-weight: 600;
+}
+
+.tag-filter-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.tag-filter-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background-color: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(73, 65, 53, 0.2);
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    transition: all 0.2s ease;
+}
+
+.tag-filter-item:hover {
+    background-color: rgba(73, 65, 53, 0.05);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.tag-filter-checkbox {
+    margin: 0;
+    accent-color: var(--salon-drab);
+}
+
+.tag-filter-item label {
+    margin: 0;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--salon-drab);
+    font-weight: 500;
+}
+
+/* Documents list for file management */
+.documents-section {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.documents-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.documents-list .document-item {
+    background-color: var(--joas-white);
+    border: 1px solid rgba(73, 65, 53, 0.2);
+    transition: all 0.2s ease;
+}
+
+.documents-list .document-item:hover {
+    background-color: rgba(73, 65, 53, 0.05);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Model dropdown styling to match tags */
+.model-dropdown .form-label {
+    color: var(--salon-drab);
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.model-dropdown .form-select {
+    background-color: var(--joas-white);
+    border: 1px solid rgba(73, 65, 53, 0.2);
+    color: var(--salon-drab);
+    font-weight: 500;
+}
+
+.model-dropdown .form-select:focus {
+    border-color: var(--salon-drab);
+    box-shadow: 0 0 0 0.2rem rgba(73, 65, 53, 0.25);
+    background-color: var(--joas-white);
+}
+
 /* General styles */
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -36,7 +305,7 @@ h1 {
     align-items: center;
     padding: 0.75rem 1rem;
     background-color: #5C5244;
-    color: #fff;
+    color: var(--joas-white);
     border-bottom: 1px solid #dee2e6;
     position: relative;
     z-index: 1200;
@@ -49,7 +318,7 @@ h1 {
 
 .app-title h3 {
     margin: 0;
-    color: #fff;
+    color: var(--joas-white);
 }
 
 /* Sidebar Toggle Button */
@@ -61,7 +330,7 @@ h1 {
 .sidebar-toggle-btn {
     background: none;
     border: none;
-    color: #fff;
+    color: var(--joas-white);
     font-size: 1.5rem;
     cursor: pointer;
     padding: 0.5rem;
@@ -81,7 +350,7 @@ h1 {
 .hamburger-btn {
     background: none;
     border: none;
-    color: #fff;
+    color: var(--joas-white);
     font-size: 1.5rem;
     cursor: pointer;
     padding: 0.5rem;
@@ -121,7 +390,7 @@ h1 {
     align-items: center;
     cursor: pointer;
     transition: background-color 0.2s ease;
-    color: #fff;
+    color: var(--joas-white);
 }
 
 .dropdown-item:hover {
@@ -163,7 +432,7 @@ h1 {
     align-items: center;
     padding: 1rem;
     background-color: #5C5244;
-    color: #fff;
+    color: var(--joas-white);
     border-bottom: 1px solid #D0C4B0;
 }
 
@@ -184,7 +453,7 @@ h1 {
 .sidebar-header .btn-primary:hover {
     background-color: var(--salon-drab);
     border-color: var(--salon-drab);
-    color: #fff;
+    color: var(--joas-white);
 }
 
 .sidebar-content {
@@ -835,9 +1104,12 @@ main {
 /* Dropdowns Container */
 .dropdowns-container {
     display: flex;
-    gap: 15px;
-    margin-bottom: 10px;
+    gap: 20px;
+    margin-bottom: 15px;
     background-color: var(--oxford-stone);
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .dropdown-item {
@@ -909,8 +1181,21 @@ main {
 }
 
 .model-info {
-    margin-top: 5px;
+    margin-top: 8px;
     font-size: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background-color: rgba(73, 65, 53, 0.05);
+    border-radius: 0.375rem;
+    border-left: 3px solid var(--oxford-stone);
+}
+
+.model-info .text-muted {
+    color: var(--salon-drab) !important;
+    font-weight: 500;
+}
+
+.model-info .bi-info-circle {
+    color: var(--oxford-stone);
 }
 
 /* Results Container (keeping for compatibility) */
@@ -995,6 +1280,33 @@ main {
 }
 
 /* Responsive Design for Sidebar */
+/* Tag selection responsive styles */
+@media (max-width: 768px) {
+    .dropdowns-container {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .tag-dropdown {
+        min-width: auto;
+    }
+    
+    .tag-checkboxes {
+        max-height: 5rem;
+        gap: 0.375rem;
+    }
+    
+    .tag-checkbox {
+        padding: 0.3rem 0.6rem;
+        font-size: 0.75rem;
+    }
+    
+    .tag-count {
+        font-size: 0.65rem;
+        padding: 0.1rem 0.3rem;
+    }
+}
+
 @media (max-width: 768px) {
     .sidebar {
         width: 280px;
@@ -1022,6 +1334,35 @@ main {
 }
 
 @media (max-width: 480px) {
+    .tag-selection-container {
+        padding: 0.5rem;
+        gap: 0.5rem;
+    }
+    
+    .tag-checkboxes {
+        max-height: 4rem;
+        padding: 0.375rem;
+        gap: 0.25rem;
+    }
+    
+    .tag-checkbox {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.7rem;
+        gap: 0.25rem;
+    }
+    
+    .tag-count {
+        font-size: 0.6rem;
+        padding: 0.05rem 0.25rem;
+    }
+    
+    .model-info {
+        padding: 0.375rem 0.5rem;
+        font-size: 0.7rem;
+    }
+}
+
+@media (max-width: 480px) {
     .sidebar {
         width: 100%;
     }
@@ -1044,6 +1385,12 @@ main {
     
     .chat-input-area.sidebar-hidden {
         left: 0;
+    }
+    
+    /* Ensure dropdowns work well on mobile */
+    .dropdowns-container {
+        padding: 0.375rem;
+        gap: 12px;
     }
     
     /* Always hide sidebar on mobile by default */

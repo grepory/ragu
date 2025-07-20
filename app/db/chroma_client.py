@@ -10,6 +10,9 @@ from app.core.config import settings
 class ChromaClient:
     """Client for interacting with ChromaDB vector database."""
     
+    # Constants
+    DOCUMENTS_COLLECTION = "documents"  # Single collection for all documents
+    
     def __init__(self):
         """Initialize ChromaDB client."""
         # Ensure persistence directory exists
@@ -231,6 +234,291 @@ class ChromaClient:
         result = collection.get(limit=limit)
         
         return result
+    
+    def get_documents_collection(self) -> chromadb.Collection:
+        """Get the main documents collection.
+        
+        Returns:
+            The main documents collection
+        """
+        return self.get_or_create_collection(self.DOCUMENTS_COLLECTION)
+    
+    def query_by_tags(
+        self,
+        query_text: str,
+        tags: Optional[List[str]] = None,
+        n_results: int = 5,
+        include_untagged: bool = True
+    ) -> Dict[str, Any]:
+        """Query documents by tags, including untagged documents.
+        
+        Args:
+            query_text: Query text
+            tags: List of tags to filter by (None means no tag filtering)
+            n_results: Number of results to return
+            include_untagged: Whether to include untagged documents
+            
+        Returns:
+            Query results combining tagged and untagged documents
+        """
+        collection = self.get_documents_collection()
+        
+        # If no tags specified, query all documents
+        if not tags:
+            return collection.query(
+                query_texts=[query_text],
+                n_results=n_results
+            )
+        
+        # Build where clause for tag filtering using ChromaDB's supported operators
+        # We'll use $in with exact tag matches and handle comma-separated values differently
+        where_conditions = []
+        
+        # For each selected tag, we need to match it in the comma-separated tags field
+        # Since ChromaDB doesn't support regex, we'll query all documents and filter client-side
+        # For better performance with large datasets, consider storing tags as separate fields
+        
+        # Include untagged documents if requested
+        if include_untagged:
+            where_conditions.append({"tags": {"$eq": ""}})  # Empty string only
+        
+        # Get all results without where clause filtering, then filter client-side
+        # This is more reliable than trying to use complex where clauses
+        all_results = collection.query(
+            query_texts=[query_text],
+            n_results=n_results * 3  # Get more results to filter from
+        )
+        
+        # Filter results client-side for tag matching
+        if tags and all_results and all_results.get("metadatas") and all_results.get("metadatas")[0]:
+            filtered_ids = []
+            filtered_documents = []
+            filtered_metadatas = []
+            filtered_distances = []
+            
+            for i, metadata in enumerate(all_results["metadatas"][0]):
+                doc_tags_str = metadata.get("tags", "")
+                doc_tags = [tag.strip() for tag in doc_tags_str.split(",") if tag.strip()] if doc_tags_str else []
+                
+                # Check if any selected tag matches document tags
+                tag_match = any(tag in doc_tags for tag in tags)
+                
+                # Check if we should include untagged documents
+                is_untagged = not doc_tags
+                
+                if tag_match or (include_untagged and is_untagged):
+                    filtered_ids.append(all_results["ids"][0][i])
+                    filtered_documents.append(all_results["documents"][0][i])
+                    filtered_metadatas.append(all_results["metadatas"][0][i])
+                    if all_results.get("distances"):
+                        filtered_distances.append(all_results["distances"][0][i])
+                    
+                    # Limit results
+                    if len(filtered_ids) >= n_results:
+                        break
+            
+            # Return filtered results in ChromaDB format
+            result = {
+                "ids": [filtered_ids],
+                "documents": [filtered_documents],
+                "metadatas": [filtered_metadatas]
+            }
+            if filtered_distances:
+                result["distances"] = [filtered_distances]
+            
+            return result
+        
+        # If no tag filtering needed, return all results as-is
+        
+        return all_results
+    
+    def get_all_tags(self) -> List[str]:
+        """Get all unique tags from all documents.
+        
+        Returns:
+            List of unique tags
+        """
+        collection = self.get_documents_collection()
+        
+        # Get all documents with their metadata
+        result = collection.get()
+        
+        if not result or not result.get("metadatas"):
+            return []
+        
+        # Extract all tags from metadata
+        all_tags = set()
+        for metadata in result["metadatas"]:
+            tags_str = metadata.get("tags", "")
+            if tags_str and isinstance(tags_str, str):
+                # Split comma-separated tags and clean them
+                tags = [tag.strip() for tag in tags_str.split(",") if tag.strip()]
+                all_tags.update(tags)
+        
+        return sorted(list(all_tags))
+    
+    def get_tag_counts(self) -> Dict[str, int]:
+        """Get tag usage statistics.
+        
+        Returns:
+            Dictionary mapping tag names to usage counts
+        """
+        collection = self.get_documents_collection()
+        
+        # Get all documents with their metadata
+        result = collection.get()
+        
+        if not result or not result.get("metadatas"):
+            return {}
+        
+        # Count tag usage
+        tag_counts = {}
+        for metadata in result["metadatas"]:
+            tags_str = metadata.get("tags", "")
+            if tags_str and isinstance(tags_str, str):
+                # Split comma-separated tags and clean them
+                tags = [tag.strip() for tag in tags_str.split(",") if tag.strip()]
+                for tag in tags:
+                    tag_counts[tag] = tag_counts.get(tag, 0) + 1
+        
+        return dict(sorted(tag_counts.items()))
+    
+    def add_document_to_main_collection(
+        self,
+        documents: List[str],
+        metadatas: Optional[List[Dict[str, Any]]] = None,
+        ids: Optional[List[str]] = None
+    ) -> None:
+        """Add documents to the main documents collection.
+        
+        Args:
+            documents: List of document texts
+            metadatas: Optional list of metadata dictionaries
+            ids: Optional list of document IDs
+        """
+        self.add_documents(self.DOCUMENTS_COLLECTION, documents, metadatas, ids)
+    
+    def get_documents_by_tags(
+        self,
+        tags: Optional[List[str]] = None,
+        include_untagged: bool = True,
+        limit: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """Get documents filtered by tags.
+        
+        Args:
+            tags: List of tags to filter by (None means no tag filtering)
+            include_untagged: Whether to include untagged documents
+            limit: Maximum number of documents to return
+            
+        Returns:
+            Filtered documents
+        """
+        collection = self.get_documents_collection()
+        
+        # If no tags specified, get all documents
+        if not tags:
+            return collection.get(limit=limit)
+        
+        # Get all documents and filter client-side (similar to query_by_tags)
+        all_docs = collection.get(limit=limit * 2 if limit else None)  # Get extra to filter from
+        
+        if not tags:
+            return all_docs  # Return all if no tag filtering
+        
+        # Filter client-side
+        if all_docs and all_docs.get("metadatas"):
+            filtered_ids = []
+            filtered_documents = []
+            filtered_metadatas = []
+            
+            for i, metadata in enumerate(all_docs["metadatas"]):
+                doc_tags_str = metadata.get("tags", "")
+                doc_tags = [tag.strip() for tag in doc_tags_str.split(",") if tag.strip()] if doc_tags_str else []
+                
+                # Check if any selected tag matches document tags
+                tag_match = any(tag in doc_tags for tag in tags)
+                
+                # Check if we should include untagged documents
+                is_untagged = not doc_tags
+                
+                if tag_match or (include_untagged and is_untagged):
+                    filtered_ids.append(all_docs["ids"][i])
+                    filtered_documents.append(all_docs["documents"][i])
+                    filtered_metadatas.append(all_docs["metadatas"][i])
+                    
+                    # Limit results
+                    if limit and len(filtered_ids) >= limit:
+                        break
+            
+            return {
+                "ids": filtered_ids,
+                "documents": filtered_documents,
+                "metadatas": filtered_metadatas
+            }
+        
+        return all_docs
+    
+    def delete_document_from_main_collection(self, document_id: str) -> None:
+        """Delete a document from the main collection.
+        
+        Args:
+            document_id: Document ID to delete
+        """
+        self.delete_document(self.DOCUMENTS_COLLECTION, document_id)
+    
+    def delete_documents_by_source_from_main_collection(self, source: str) -> int:
+        """Delete documents by source from the main collection.
+        
+        Args:
+            source: Source filename to delete
+            
+        Returns:
+            Number of documents deleted
+        """
+        return self.delete_documents_by_source(self.DOCUMENTS_COLLECTION, source)
+    
+    def migrate_documents_to_main_collection(self, copy_from_collections: List[str] = None) -> Dict[str, int]:
+        """Migrate documents from old collections to the main collection.
+        
+        Args:
+            copy_from_collections: List of collection names to migrate from.
+                                 If None, migrates from all existing collections except main.
+        
+        Returns:
+            Dictionary with migration statistics
+        """
+        if copy_from_collections is None:
+            copy_from_collections = [
+                name for name in self.list_collections() 
+                if name != self.DOCUMENTS_COLLECTION
+            ]
+        
+        stats = {"collections_processed": 0, "documents_migrated": 0, "errors": 0}
+        
+        for collection_name in copy_from_collections:
+            try:
+                # Get all documents from the source collection
+                result = self.get_collection_documents(collection_name)
+                
+                if result and result.get("ids"):
+                    # Add documents to main collection
+                    self.add_document_to_main_collection(
+                        documents=result["documents"],
+                        metadatas=result["metadatas"],
+                        ids=[f"migrated_{collection_name}_{doc_id}" for doc_id in result["ids"]]
+                    )
+                    
+                    stats["documents_migrated"] += len(result["ids"])
+                    stats["collections_processed"] += 1
+                    
+                    print(f"Migrated {len(result['ids'])} documents from {collection_name}")
+                    
+            except Exception as e:
+                print(f"Error migrating collection {collection_name}: {e}")
+                stats["errors"] += 1
+        
+        return stats
 
 
 # Create a singleton instance

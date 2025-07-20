@@ -81,15 +81,27 @@
                 <!-- File Management Interface (hidden by default) -->
                 <div id="file-management" class="content-panel">
                     <div class="file-management-container">
-                        <div class="collections-section">
+                        <div class="documents-section">
                             <div class="section-header">
-                                <h4><i class="bi bi-collection me-2"></i>Collections</h4>
-                                <button class="btn btn-primary btn-sm" id="create-collection-btn">
-                                    <i class="bi bi-plus-circle me-1"></i>New Collection
-                                </button>
+                                <h4><i class="bi bi-file-earmark-text me-2"></i>All Documents</h4>
+                                <div class="upload-controls">
+                                    <input type="file" id="file-input" multiple accept=".txt,.pdf,.md,.doc,.docx" style="display: none;">
+                                    <button class="btn btn-primary btn-sm" id="upload-files-btn">
+                                        <i class="bi bi-cloud-upload me-1"></i>Upload Files
+                                    </button>
+                                </div>
                             </div>
-                            <div class="drag-drop-instructions">
-                                <p class="text-muted"><i class="bi bi-cloud-upload me-2"></i>Drag files onto collections to upload</p>
+                            
+                            <div class="tag-filter-section">
+                                <div class="tag-filter-header">
+                                    <h6><i class="bi bi-tags me-2"></i>Filter by Tags</h6>
+                                    <button class="btn btn-outline-secondary btn-sm" id="clear-filters-btn">
+                                        <i class="bi bi-x-circle me-1"></i>Clear
+                                    </button>
+                                </div>
+                                <div id="tag-filter-list" class="tag-filter-list">
+                                    <!-- Tag filters will be loaded here -->
+                                </div>
                             </div>
                             
                             <!-- Upload Progress Area -->
@@ -102,21 +114,16 @@
                                 </div>
                             </div>
                             
-                            <div id="collections-list" class="collections-list">
-                                <!-- Collections will be loaded here -->
+                            <div id="documents-list" class="documents-list">
+                                <!-- Documents will be loaded here -->
                             </div>
                             
-                            <!-- Documents in selected collection -->
-                            <div id="collection-documents" class="collection-documents" style="display: none;">
-                                <div class="section-header">
-                                    <h5><i class="bi bi-file-earmark-text me-2"></i>Documents in <span id="selected-collection-name"></span></h5>
-                                    <button class="btn btn-outline-secondary btn-sm" id="back-to-collections">
-                                        <i class="bi bi-arrow-left me-1"></i>Back
-                                    </button>
-                                </div>
-                                <div id="documents-list" class="documents-list">
-                                    <!-- Documents will be loaded here -->
-                                </div>
+                            <div id="no-documents-message" class="text-center text-muted p-5" style="display: none;">
+                                <i class="bi bi-inbox fs-1"></i>
+                                <p class="mt-3">No documents found</p>
+                                <button class="btn btn-primary" onclick="document.getElementById('upload-files-btn').click()">
+                                    <i class="bi bi-cloud-upload me-1"></i>Upload your first document
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -183,71 +190,167 @@
             // Files menu item click handler
             filesMenuItem.addEventListener('click', function() {
                 setActiveTab('files');
-                loadCollectionsList();
+                loadDocumentsList();
             });
             
-            // Load collections list function
-            async function loadCollectionsList() {
-                const collectionsList = document.getElementById('collections-list');
+            // Load documents list function for tag-based system
+            async function loadDocumentsList() {
+                const documentsList = document.getElementById('documents-list');
+                const noDocumentsMessage = document.getElementById('no-documents-message');
+                
+                // Show loading
+                documentsList.innerHTML = '<div class="text-center p-4"><div class="spinner-border" role="status"></div><p class="mt-2">Loading documents...</p></div>';
+                noDocumentsMessage.style.display = 'none';
                 
                 try {
-                    const response = await fetch('/api/v1/collections/');
+                    // Get all documents from the main collection
+                    const response = await fetch('/api/v1/documents/documents');
                     if (response.ok) {
                         const data = await response.json();
-                        const collections = data.collections || [];
+                        const documents = data.documents || [];
                         
-                        if (collections.length === 0) {
-                            collectionsList.innerHTML = '<div class="text-muted text-center">No collections found. Create one to get started.</div>';
+                        if (documents.length === 0) {
+                            documentsList.innerHTML = '';
+                            noDocumentsMessage.style.display = 'block';
                         } else {
-                            collectionsList.innerHTML = collections.map(collection => `
-                                <div class="collection-item drag-drop-target" data-collection="${collection}">
-                                    <div class="collection-content">
-                                        <div class="collection-name">
-                                            <i class="bi bi-collection me-2"></i>${collection}
-                                        </div>
-                                        <div class="collection-stats">
-                                            <small class="text-muted">Click to view • Drag files to upload</small>
-                                        </div>
-                                    </div>
-                                    <div class="drag-drop-overlay">
-                                        <i class="bi bi-cloud-upload fs-2"></i>
-                                        <p>Drop files here</p>
-                                    </div>
-                                    <div class="upload-overlay">
-                                        <div class="upload-spinner">
-                                            <i class="bi bi-arrow-repeat spin"></i>
-                                        </div>
-                                        <p class="upload-text">Uploading...</p>
-                                    </div>
-                                </div>
-                            `).join('');
-                            
-                            // Add click event listeners to collection items
-                            document.querySelectorAll('.collection-item').forEach(item => {
-                                const collectionContent = item.querySelector('.collection-content');
-                                collectionContent.addEventListener('click', function() {
-                                    const collectionName = item.getAttribute('data-collection');
-                                    showCollectionDocuments(collectionName);
-                                });
-                            });
-                            
-                            // Add drag and drop event listeners to collection items
-                            document.querySelectorAll('.drag-drop-target').forEach(item => {
-                                setupDragAndDrop(item);
-                            });
+                            displayDocuments(documents);
+                            noDocumentsMessage.style.display = 'none';
                         }
+                        
+                        // Load tag filters
+                        await loadTagFilters();
+                        
                     } else {
-                        collectionsList.innerHTML = '<div class="text-danger">Failed to load collections</div>';
+                        documentsList.innerHTML = '<div class="text-danger text-center p-4">Failed to load documents</div>';
                     }
                 } catch (error) {
-                    console.error('Error loading collections:', error);
-                    collectionsList.innerHTML = '<div class="text-danger">Error loading collections</div>';
+                    console.error('Error loading documents:', error);
+                    documentsList.innerHTML = '<div class="text-danger text-center p-4">Error loading documents</div>';
                 }
             }
             
-            // Create collection functionality
+            // Display documents in the UI
+            function displayDocuments(documents) {
+                const documentsList = document.getElementById('documents-list');
+                
+                documentsList.innerHTML = documents.map(doc => {
+                    // Clean up the filename display
+                    let displayName = doc.metadata.source;
+                    
+                    // If it looks like a temp file path, extract just the filename
+                    if (displayName.includes('/')) {
+                        displayName = displayName.split('/').pop();
+                    }
+                    
+                    // If it still has temp file characteristics, try to clean it up
+                    if (displayName.match(/^tmp[a-zA-Z0-9_]+/)) {
+                        // Try to extract file extension and create a meaningful name
+                        const extension = displayName.match(/\.[a-zA-Z0-9]+$/);
+                        if (extension) {
+                            displayName = `Document${extension[0]}`;
+                        } else {
+                            displayName = 'Document';
+                        }
+                    }
+                    
+                    return `
+                        <div class="document-item" data-tags="${JSON.stringify(doc.metadata.tags || [])}">
+                            <div class="document-content">
+                                <div class="document-name">
+                                    <i class="bi bi-file-earmark-text me-2"></i>${displayName}
+                                </div>
+                                <div class="document-info">
+                                    ${doc.metadata.total_chunks} chunks
+                                    ${doc.metadata.tags && doc.metadata.tags.length > 0 ? `• ${doc.metadata.tags.length} tags` : '• No tags'}
+                                </div>
+                                ${doc.metadata.tags && doc.metadata.tags.length > 0 ? `
+                                    <div class="document-tags">
+                                        ${doc.metadata.tags.map(tag => `<span class="document-tag">${tag}</span>`).join('')}
+                                    </div>
+                                ` : ''}
+                            </div>
+                            <div class="document-actions">
+                                <button class="btn btn-outline-danger btn-sm delete-document-btn" 
+                                        data-source="${doc.metadata.source}">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+                // Add click event listeners to delete buttons
+                document.querySelectorAll('.delete-document-btn').forEach(button => {
+                    button.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const source = this.getAttribute('data-source');
+                        deleteDocument(source);
+                    });
+                });
+            }
+            
+            // Load tag filters
+            async function loadTagFilters() {
+                const tagFilterList = document.getElementById('tag-filter-list');
+                
+                try {
+                    const response = await fetch('/api/v1/tags/');
+                    if (response.ok) {
+                        const data = await response.json();
+                        const tags = data.tags || [];
+                        const tagCounts = data.tag_counts || {};
+                        
+                        if (tags.length === 0) {
+                            tagFilterList.innerHTML = '<p class="text-muted small">No tags found</p>';
+                        } else {
+                            tagFilterList.innerHTML = tags.map(tag => `
+                                <div class="tag-filter-item" data-tag="${tag}">
+                                    <input type="checkbox" id="filter-${tag}" class="tag-filter-checkbox">
+                                    <label for="filter-${tag}">${tag} (${tagCounts[tag] || 0})</label>
+                                </div>
+                            `).join('');
+                            
+                            // Add change event listeners to tag filter checkboxes
+                            document.querySelectorAll('.tag-filter-checkbox').forEach(checkbox => {
+                                checkbox.addEventListener('change', filterDocuments);
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error loading tag filters:', error);
+                    tagFilterList.innerHTML = '<p class="text-danger small">Error loading tags</p>';
+                }
+            }
+            
+            // Filter documents by selected tags
+            function filterDocuments() {
+                const selectedTags = Array.from(document.querySelectorAll('.tag-filter-checkbox:checked'))
+                    .map(cb => cb.id.replace('filter-', ''));
+                
+                const documentItems = document.querySelectorAll('.document-item');
+                
+                documentItems.forEach(item => {
+                    const itemTags = JSON.parse(item.getAttribute('data-tags') || '[]');
+                    
+                    if (selectedTags.length === 0) {
+                        // Show all documents if no filters selected
+                        item.style.display = '';
+                    } else {
+                        // Show document if it has any of the selected tags
+                        const hasMatchingTag = selectedTags.some(tag => itemTags.includes(tag));
+                        item.style.display = hasMatchingTag ? '' : 'none';
+                    }
+                });
+                
+                // Show count of visible documents
+                const visibleCount = Array.from(documentItems).filter(item => item.style.display !== 'none').length;
+                console.log(`Showing ${visibleCount} of ${documentItems.length} documents`);
+            }
+            
+            // Create collection functionality (deprecated but kept for compatibility)
             const createCollectionBtn = document.getElementById('create-collection-btn');
-            createCollectionBtn.addEventListener('click', async function() {
+            if (createCollectionBtn) {
+                createCollectionBtn.addEventListener('click', async function() {
                 const collectionName = prompt('Enter a name for the new collection:');
                 if (!collectionName) return;
                 
@@ -273,14 +376,23 @@
                     console.error('Error creating collection:', error);
                     alert('Error creating collection');
                 }
-            });
+                });
+            } else {
+                console.log('Create collection button not found (expected in new tag-based UI)');
+            }
             
-            // Show documents in a collection
+            // Show documents in a collection (deprecated in new tag-based UI)
             async function showCollectionDocuments(collectionName) {
                 const collectionsList = document.getElementById('collections-list');
                 const collectionDocuments = document.getElementById('collection-documents');
                 const selectedCollectionName = document.getElementById('selected-collection-name');
                 const documentsList = document.getElementById('documents-list');
+                
+                // Check if elements exist (they won't in the new UI)
+                if (!collectionsList || !collectionDocuments || !selectedCollectionName || !documentsList) {
+                    console.log('Collection view elements not found - using new tag-based UI');
+                    return;
+                }
                 
                 // Hide collections list and show documents view
                 collectionsList.style.display = 'none';
@@ -539,32 +651,41 @@
                 }
             }
 
-            // Back to collections button
+            // Back to collections button (deprecated in new tag-based UI)
             const backToCollectionsBtn = document.getElementById('back-to-collections');
-            backToCollectionsBtn.addEventListener('click', function() {
-                const collectionsList = document.getElementById('collections-list');
-                const collectionDocuments = document.getElementById('collection-documents');
+            if (backToCollectionsBtn) {
+                backToCollectionsBtn.addEventListener('click', function() {
+                    const collectionsList = document.getElementById('collections-list');
+                    const collectionDocuments = document.getElementById('collection-documents');
+                    
+                    if (!collectionsList || !collectionDocuments) {
+                        console.log('Collection navigation elements not found - using new tag-based UI');
+                        return;
+                    }
                 
                 // Show collections list and hide documents view
                 collectionsList.style.display = '';  // Remove inline style to let CSS take over
                 collectionDocuments.style.display = 'none';
                 
-                // Refresh the collections list to ensure consistent styling
-                loadCollectionsList();
-            });
+                    // Refresh the collections list to ensure consistent styling
+                    loadCollectionsList();
+                });
+            } else {
+                console.log('Back to collections button not found (expected in new tag-based UI)');
+            }
             
-            // Delete document function
-            async function deleteDocument(collectionName, sourceFilename) {
+            // Delete document function for tag-based system
+            async function deleteDocument(sourceFilename) {
                 // Show confirmation dialog
-                const confirmDelete = confirm(`Are you sure you want to delete "${sourceFilename}" from collection "${collectionName}"?\n\nThis action cannot be undone and will remove all chunks of this document.`);
+                const confirmDelete = confirm(`Are you sure you want to delete "${sourceFilename}"?\n\nThis action cannot be undone and will remove all chunks of this document.`);
                 
                 if (!confirmDelete) {
                     return;
                 }
                 
                 try {
-                    // Create the API endpoint for deleting by source
-                    const response = await fetch(`/api/v1/documents/${collectionName}/by-source`, {
+                    // Create the API endpoint for deleting by source from main collection
+                    const response = await fetch(`/api/v1/documents/by-source`, {
                         method: 'DELETE',
                         headers: {
                             'Content-Type': 'application/json'
@@ -576,7 +697,7 @@
                         const result = await response.json();
                         alert(`Successfully deleted "${sourceFilename}". Removed ${result.chunks_deleted} chunks.`);
                         // Refresh the documents list
-                        showCollectionDocuments(collectionName);
+                        loadDocumentsList();
                     } else {
                         const errorData = await response.json();
                         alert(`Failed to delete document: ${errorData.detail || 'Unknown error'}`);
@@ -587,7 +708,7 @@
                 }
             }
             
-            // Sidebar functionality
+            // Sidebar functionality with error handling
             const sidebar = document.getElementById('sidebar');
             const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
             const newConversationBtn = document.getElementById('new-conversation-btn');
@@ -595,22 +716,43 @@
             const mainContent = document.querySelector('.main-content');
             const chatInputArea = document.querySelector('.chat-input-area');
             
-            // Toggle sidebar
-            sidebarToggleBtn.addEventListener('click', function() {
-                sidebar.classList.toggle('hide');
-                mainContent.classList.toggle('sidebar-hidden');
-                if (chatInputArea) {
-                    chatInputArea.classList.toggle('sidebar-hidden');
-                }
-                
-                // Update icon based on sidebar state
-                const icon = sidebarToggleBtn.querySelector('i');
-                if (sidebar.classList.contains('hide')) {
-                    icon.className = 'bi bi-layout-sidebar';
-                } else {
-                    icon.className = 'bi bi-layout-sidebar-reverse';
-                }
+            // Debug: Check if elements exist
+            console.log('Debug - Elements found:', {
+                sidebar: !!sidebar,
+                sidebarToggleBtn: !!sidebarToggleBtn,
+                newConversationBtn: !!newConversationBtn,
+                mainContent: !!mainContent,
+                chatInputArea: !!chatInputArea
             });
+            
+            // Toggle sidebar with error handling
+            if (sidebarToggleBtn && sidebar && mainContent) {
+                sidebarToggleBtn.addEventListener('click', function() {
+                    console.log('Sidebar toggle clicked');
+                    sidebar.classList.toggle('hide');
+                    mainContent.classList.toggle('sidebar-hidden');
+                    if (chatInputArea) {
+                        chatInputArea.classList.toggle('sidebar-hidden');
+                    }
+                    
+                    // Update icon based on sidebar state
+                    const icon = sidebarToggleBtn.querySelector('i');
+                    if (icon) {
+                        if (sidebar.classList.contains('hide')) {
+                            icon.className = 'bi bi-layout-sidebar';
+                        } else {
+                            icon.className = 'bi bi-layout-sidebar-reverse';
+                        }
+                    }
+                });
+                console.log('Sidebar toggle event listener added');
+            } else {
+                console.error('Sidebar toggle elements not found:', {
+                    sidebarToggleBtn: !!sidebarToggleBtn,
+                    sidebar: !!sidebar,
+                    mainContent: !!mainContent
+                });
+            }
             
             // Initialize sidebar based on screen size
             function initializeSidebar() {
@@ -640,19 +782,26 @@
             // Handle window resize
             window.addEventListener('resize', initializeSidebar);
             
-            // New conversation button
-            newConversationBtn.addEventListener('click', function() {
-                // Check if we're in the chat interface
-                if (!chatInterface.classList.contains('active')) {
-                    setActiveTab('chat');
-                }
-                
-                // Create a custom event for new conversation
-                const event = new CustomEvent('startNewConversation');
-                document.dispatchEvent(event);
-                
-                // Keep sidebar open after creating new conversation
-            });
+            // New conversation button with error handling
+            if (newConversationBtn) {
+                newConversationBtn.addEventListener('click', function() {
+                    console.log('New conversation button clicked');
+                    
+                    // Check if we're in the chat interface
+                    if (chatInterface && !chatInterface.classList.contains('active')) {
+                        setActiveTab('chat');
+                    }
+                    
+                    // Create a custom event for new conversation
+                    const event = new CustomEvent('startNewConversation');
+                    document.dispatchEvent(event);
+                    
+                    console.log('New conversation event dispatched');
+                });
+                console.log('New conversation button event listener added');
+            } else {
+                console.error('New conversation button not found');
+            }
             
             // Load conversation history in sidebar
             async function loadConversationHistorySidebar() {
@@ -747,11 +896,153 @@
             // Expose functions globally so Vue component can call them
             window.refreshSidebarConversations = loadConversationHistorySidebar;
             
+            // Upload files functionality
+            const uploadFilesBtn = document.getElementById('upload-files-btn');
+            const fileInput = document.getElementById('file-input');
+            const clearFiltersBtn = document.getElementById('clear-filters-btn');
+            
+            if (uploadFilesBtn && fileInput) {
+                uploadFilesBtn.addEventListener('click', function() {
+                    fileInput.click();
+                });
+                
+                fileInput.addEventListener('change', function(e) {
+                    const files = Array.from(e.target.files);
+                    if (files.length > 0) {
+                        uploadFiles(files);
+                    }
+                    // Reset file input
+                    e.target.value = '';
+                });
+            }
+            
+            // Clear filters functionality
+            if (clearFiltersBtn) {
+                clearFiltersBtn.addEventListener('click', function() {
+                    // Uncheck all filter checkboxes
+                    document.querySelectorAll('.tag-filter-checkbox').forEach(checkbox => {
+                        checkbox.checked = false;
+                    });
+                    // Show all documents
+                    filterDocuments();
+                });
+            }
+            
+            // Upload files to the main collection
+            async function uploadFiles(files) {
+                console.log(`Uploading ${files.length} files to documents collection`);
+                
+                // Show upload progress area
+                const progressArea = document.getElementById('upload-progress-area');
+                const progressList = document.getElementById('upload-progress-list');
+                
+                progressArea.style.display = 'block';
+                progressList.innerHTML = '';
+                
+                try {
+                    // Create progress items for each file
+                    const progressItems = files.map(file => {
+                        const progressId = `progress-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                        const progressItem = document.createElement('div');
+                        progressItem.className = 'upload-progress-item';
+                        progressItem.id = progressId;
+                        progressItem.innerHTML = `
+                            <div class="progress-file-info">
+                                <i class="bi bi-file-earmark me-2"></i>
+                                <span class="file-name">${file.name}</span>
+                            </div>
+                            <div class="progress-status">
+                                <i class="bi bi-arrow-repeat spin text-primary"></i>
+                                <span class="status-text">Uploading...</span>
+                            </div>
+                        `;
+                        progressList.appendChild(progressItem);
+                        return { element: progressItem, id: progressId, file };
+                    });
+                    
+                    // Upload files one by one to show individual progress
+                    const results = [];
+                    for (const { element, file } of progressItems) {
+                        try {
+                            const formData = new FormData();
+                            formData.append('file', file);
+                            formData.append('collection_name', 'documents');  // Use main collection
+                            
+                            const response = await fetch('/api/v1/documents/upload', {
+                                method: 'POST',
+                                body: formData
+                            });
+                            
+                            const result = await response.json();
+                            const success = response.ok;
+                            
+                            // Update progress item
+                            const statusElement = element.querySelector('.progress-status');
+                            if (success) {
+                                statusElement.innerHTML = `
+                                    <i class="bi bi-check-circle text-success"></i>
+                                    <span class="status-text text-success">Uploaded</span>
+                                `;
+                            } else {
+                                statusElement.innerHTML = `
+                                    <i class="bi bi-x-circle text-danger"></i>
+                                    <span class="status-text text-danger">Failed</span>
+                                `;
+                            }
+                            
+                            results.push({
+                                fileName: file.name,
+                                success: success,
+                                message: success ? result.message : result.detail || 'Upload failed'
+                            });
+                            
+                        } catch (error) {
+                            // Update progress item for error
+                            const statusElement = element.querySelector('.progress-status');
+                            statusElement.innerHTML = `
+                                <i class="bi bi-x-circle text-danger"></i>
+                                <span class="status-text text-danger">Error</span>
+                            `;
+                            
+                            results.push({
+                                fileName: file.name,
+                                success: false,
+                                message: error.message
+                            });
+                        }
+                    }
+                    
+                    // Check results and show success/failure
+                    const successfulUploads = results.filter(result => result.success);
+                    const failedUploads = results.filter(result => !result.success);
+                    
+                    // Hide progress area after a delay
+                    setTimeout(() => {
+                        progressArea.style.display = 'none';
+                    }, 3000);
+                    
+                    // Refresh documents list
+                    if (successfulUploads.length > 0) {
+                        loadDocumentsList();
+                    }
+                    
+                    if (failedUploads.length > 0) {
+                        const failedFileNames = failedUploads.map(f => f.fileName).join(', ');
+                        alert(`Failed to upload: ${failedFileNames}`);
+                    }
+                    
+                } catch (error) {
+                    console.error('Error uploading files:', error);
+                    progressArea.style.display = 'none';
+                    alert(`Error uploading files: ${error.message}`);
+                }
+            }
+            
             // Check localStorage for active tab on page load
             const activeTab = localStorage.getItem('activeTab');
             if (activeTab === 'files') {
                 setActiveTab('files');
-                loadCollectionsList();
+                loadDocumentsList();
             } else {
                 // Default to chat tab if no saved preference or 'chat' is saved
                 setActiveTab('chat');

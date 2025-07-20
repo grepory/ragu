@@ -21,7 +21,7 @@ router = APIRouter()
 @router.post("/upload", status_code=201)
 async def upload_document(
     file: UploadFile = File(...),
-    collection_name: str = Form(...),
+    collection_name: Optional[str] = Form(None),  # Deprecated but kept for compatibility
     tags: Optional[str] = Form(None),
     additional_metadata: Optional[str] = Form(None)
 ):
@@ -37,11 +37,8 @@ async def upload_document(
         Upload status
     """
     try:
-        # Check if collection exists
-        collections = chroma_client.list_collections()
-        if collection_name not in collections:
-            # Create collection if it doesn't exist
-            chroma_client.get_or_create_collection(collection_name)
+        # In the new system, all documents go to the main collection
+        # collection_name parameter is ignored (kept for backward compatibility)
         
         # Parse additional metadata if provided
         metadata_dict = {}
@@ -81,9 +78,8 @@ async def upload_document(
                     # Convert tag list to comma-separated string to ensure compatibility with ChromaDB
                     metadata["tags"] = ",".join(tag_list)
             
-            # Add to vector database
-            chroma_client.add_documents(
-                collection_name=collection_name,
+            # Add to main documents collection
+            chroma_client.add_document_to_main_collection(
                 documents=texts,
                 metadatas=metadatas,
                 ids=ids
@@ -93,7 +89,7 @@ async def upload_document(
                 "status": "success",
                 "message": f"Document '{file.filename}' uploaded and processed successfully",
                 "chunks": len(texts),
-                "collection": collection_name
+                "tags": tag_list or []
             }
         finally:
             # Clean up temporary file
@@ -118,11 +114,8 @@ async def add_text(text_input: TextInput):
         Upload status
     """
     try:
-        # Check if collection exists
-        collections = chroma_client.list_collections()
-        if text_input.collection_name not in collections:
-            # Create collection if it doesn't exist
-            chroma_client.get_or_create_collection(text_input.collection_name)
+        # In the new system, all documents go to the main collection
+        # collection_name parameter is ignored (kept for backward compatibility)
         
         # Process the text
         texts, metadatas, ids = document_processor.process_text(
@@ -145,9 +138,8 @@ async def add_text(text_input: TextInput):
                 # Convert tag list to comma-separated string to ensure compatibility with ChromaDB
                 metadata["tags"] = ",".join(text_input.tags)
         
-        # Add to vector database
-        chroma_client.add_documents(
-            collection_name=text_input.collection_name,
+        # Add to main documents collection
+        chroma_client.add_document_to_main_collection(
             documents=texts,
             metadatas=metadatas,
             ids=ids
@@ -157,7 +149,7 @@ async def add_text(text_input: TextInput):
             "status": "success",
             "message": "Text added successfully",
             "chunks": len(texts),
-            "collection": text_input.collection_name
+            "tags": text_input.tags or []
         }
     except Exception as e:
         raise HTTPException(
@@ -228,41 +220,31 @@ async def get_document(collection_name: str, document_id: str):
         )
 
 
-@router.delete("/{collection_name}/by-source")
+@router.delete("/by-source")
 async def delete_document_by_source(
-    collection_name: str,
     request: DeleteDocumentRequest
 ):
-    """Delete all chunks of a document by source filename.
+    """Delete all chunks of a document by source filename from main collection.
     
     Args:
-        collection_name: Name of the collection
         request: JSON body containing the source filename
     """
     try:
-        # Check if collection exists
-        collections = chroma_client.list_collections()
-        if collection_name not in collections:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Collection '{collection_name}' not found"
-            )
-        
         # Extract source from request body
         source = request.source
         
-        # Delete all chunks of the document by source
-        chunks_deleted = chroma_client.delete_documents_by_source(collection_name, source)
+        # Delete all chunks of the document by source from main collection
+        chunks_deleted = chroma_client.delete_documents_by_source_from_main_collection(source)
         
         if chunks_deleted == 0:
             raise HTTPException(
                 status_code=404,
-                detail=f"No document found with source '{source}' in collection '{collection_name}'"
+                detail=f"No document found with source '{source}'"
             )
         
         return {
             "status": "success",
-            "message": f"Deleted document '{source}' from collection '{collection_name}'",
+            "message": f"Deleted document '{source}'",
             "chunks_deleted": chunks_deleted
         }
     except HTTPException:
@@ -274,25 +256,16 @@ async def delete_document_by_source(
         )
 
 
-@router.delete("/{collection_name}/{document_id}", status_code=204)
-async def delete_document(collection_name: str, document_id: str):
-    """Delete a document by ID.
+@router.delete("/{document_id}", status_code=204)
+async def delete_document(document_id: str):
+    """Delete a document by ID from main collection.
     
     Args:
-        collection_name: Name of the collection
         document_id: Document ID
     """
     try:
-        # Check if collection exists
-        collections = chroma_client.list_collections()
-        if collection_name not in collections:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Collection '{collection_name}' not found"
-            )
-        
-        # Delete document
-        chroma_client.delete_document(collection_name, document_id)
+        # Delete document from main collection
+        chroma_client.delete_document_from_main_collection(document_id)
         
         return None
     except HTTPException:
@@ -301,6 +274,165 @@ async def delete_document(collection_name: str, document_id: str):
         raise HTTPException(
             status_code=500,
             detail=f"Failed to delete document: {str(e)}"
+        )
+
+
+@router.get("/", response_model=DocumentList)
+async def list_all_documents(
+    limit: Optional[int] = Query(100, ge=1, le=1000)
+):
+    """List all documents in the main collection.
+    
+    Args:
+        limit: Maximum number of documents to return
+        
+    Returns:
+        List of all documents
+    """
+    try:
+        # Get all documents from main collection
+        result = chroma_client.get_collection_documents(
+            chroma_client.DOCUMENTS_COLLECTION, 
+            limit=limit
+        )
+        
+        documents = []
+        if result and result.get("ids"):
+            # Group documents by source file
+            doc_sources = {}
+            
+            for i, doc_id in enumerate(result["ids"]):
+                metadata = result["metadatas"][i] if result.get("metadatas") else {}
+                
+                source = metadata.get("source", "unknown")
+                
+                # Clean up the source if it looks like a temp file path
+                if source.startswith('/') and 'tmp' in source.lower():
+                    source = os.path.basename(source)
+                
+                if source not in doc_sources:
+                    # Convert tags from comma-separated string back to list
+                    tags = metadata.get("tags", "")
+                    if tags and isinstance(tags, str):
+                        tags = [tag.strip() for tag in tags.split(',') if tag.strip()]
+                    else:
+                        tags = []
+                    
+                    doc_sources[source] = {
+                        "id": f"doc_{source}",
+                        "source": source,
+                        "total_chunks": metadata.get("total_chunks", 1),
+                        "tags": tags,
+                        "metadata": {k: v for k, v in metadata.items() 
+                                   if k not in ["source", "chunk", "total_chunks", "tags"]}
+                    }
+            
+            # Convert to DocumentResponse format
+            for source_info in doc_sources.values():
+                documents.append(DocumentResponse(
+                    id=source_info["id"],
+                    text=f"Document with {source_info['total_chunks']} chunks",
+                    metadata={
+                        "source": source_info["source"],
+                        "total_chunks": source_info["total_chunks"],
+                        "tags": source_info["tags"],
+                        "additional_metadata": source_info["metadata"]
+                    }
+                ))
+        
+        return DocumentList(
+            documents=documents,
+            total=len(documents)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to list documents: {str(e)}"
+        )
+
+
+@router.get("/all-collections", response_model=DocumentList)
+async def list_all_documents_from_all_collections(
+    limit: Optional[int] = Query(100, ge=1, le=1000)
+):
+    """List documents from all collections (compatibility endpoint).
+    
+    This endpoint searches both the new main collection and any existing
+    old collections to provide access to all user documents.
+    
+    Args:
+        limit: Maximum number of documents to return
+        
+    Returns:
+        List of all documents across all collections
+    """
+    try:
+        all_documents = []
+        all_collections = chroma_client.list_collections()
+        
+        for collection_name in all_collections:
+            try:
+                result = chroma_client.get_collection_documents(
+                    collection_name, 
+                    limit=limit
+                )
+                
+                if result and result.get("ids"):
+                    # Group documents by source file within this collection
+                    doc_sources = {}
+                    
+                    for i, doc_id in enumerate(result["ids"]):
+                        metadata = result["metadatas"][i] if result.get("metadatas") else {}
+                        
+                        source = metadata.get("source", "unknown")
+                        
+                        # Clean up the source if it looks like a temp file path
+                        if source.startswith('/') and 'tmp' in source.lower():
+                            source = os.path.basename(source)
+                        
+                        if source not in doc_sources:
+                            # Convert tags from comma-separated string back to list
+                            tags = metadata.get("tags", "")
+                            if tags and isinstance(tags, str):
+                                tags = [tag.strip() for tag in tags.split(',') if tag.strip()]
+                            else:
+                                tags = []
+                            
+                            doc_sources[source] = {
+                                "id": f"{collection_name}_{source}",
+                                "source": source,
+                                "collection": collection_name,
+                                "total_chunks": metadata.get("total_chunks", 1),
+                                "tags": tags,
+                                "metadata": {k: v for k, v in metadata.items() 
+                                           if k not in ["source", "chunk", "total_chunks", "tags"]}
+                            }
+                    
+                    # Convert to DocumentResponse format
+                    for source_info in doc_sources.values():
+                        all_documents.append(DocumentResponse(
+                            id=source_info["id"],
+                            text=f"Document in {source_info['collection']} with {source_info['total_chunks']} chunks",
+                            metadata={
+                                "source": source_info["source"],
+                                "collection": source_info["collection"],  # Show which collection it came from
+                                "total_chunks": source_info["total_chunks"],
+                                "tags": source_info["tags"],
+                                "additional_metadata": source_info["metadata"]
+                            }
+                        ))
+            except Exception as e:
+                print(f"Error processing collection {collection_name}: {e}")
+                continue
+        
+        return DocumentList(
+            documents=all_documents,
+            total=len(all_documents)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to list all documents: {str(e)}"
         )
 
 
@@ -422,7 +554,7 @@ async def list_collection_documents(
 
 @router.post("/query", response_model=QueryResponse)
 async def query_documents(query: QueryRequest):
-    """Query documents in the vector database.
+    """Query documents in the vector database using tags.
     
     Args:
         query: Query parameters
@@ -431,20 +563,12 @@ async def query_documents(query: QueryRequest):
         Query results
     """
     try:
-        # Check if collection exists
-        collections = chroma_client.list_collections()
-        if query.collection_name not in collections:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Collection '{query.collection_name}' not found"
-            )
-        
-        # Query the collection
-        result = chroma_client.query_collection(
-            collection_name=query.collection_name,
+        # Use the new tag-based querying system
+        result = chroma_client.query_by_tags(
             query_text=query.query_text,
+            tags=query.tags,
             n_results=query.n_results,
-            where=query.where
+            include_untagged=query.include_untagged
         )
         
         # Process results

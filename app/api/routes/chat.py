@@ -2,7 +2,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, De
 from typing import List, Dict, Any, Optional
 import json
 
-from app.models.schemas import ChatRequest, ChatResponse, ChatMessage, ConversationCreate
+from app.models.schemas import ChatRequest, ChatResponse, ChatMessage, ConversationCreate, ConversationUpdate
 from app.db.chroma_client import chroma_client
 from app.db.conversation_store import conversation_store
 from app.services.llm_service import llm_service, StreamingCallbackHandler
@@ -32,26 +32,19 @@ async def websocket_endpoint(websocket: WebSocket):
                 # Check message type
                 if message.get("type") == "chat":
                     # Extract chat request
-                    collection_name = message.get("collection_name")
+                    collection_name = message.get("collection_name")  # Deprecated
                     query = message.get("query")
                     history_data = message.get("history", [])
                     model = message.get("model")
                     conversation_id = message.get("conversation_id")
+                    tags = message.get("tags")
+                    include_untagged = message.get("include_untagged", True)
                     
                     # Validate required fields
-                    if not collection_name or not query:
+                    if not query:
                         await websocket.send_json({
                             "type": "error",
-                            "content": "Missing required fields: collection_name and query"
-                        })
-                        continue
-                    
-                    # Check if collection exists
-                    collections = chroma_client.list_collections()
-                    if collection_name not in collections:
-                        await websocket.send_json({
-                            "type": "error",
-                            "content": f"Collection '{collection_name}' not found"
+                            "content": "Missing required field: query"
                         })
                         continue
                     
@@ -89,10 +82,11 @@ async def websocket_endpoint(websocket: WebSocket):
                         "content": "Generating response..."
                     })
                     
-                    # Generate RAG response with streaming
-                    response_data = await llm_service.generate_rag_response(
+                    # Generate RAG response with streaming (tag-based)
+                    response_data = await llm_service.generate_rag_response_by_tags(
                         query=query,
-                        collection_name=collection_name,
+                        tags=tags,
+                        include_untagged=include_untagged,
                         history=history,
                         model=model,
                         streaming=True,
@@ -106,14 +100,16 @@ async def websocket_endpoint(websocket: WebSocket):
                         # Update existing conversation
                         conversation_store.update_conversation(
                             conversation_id,
-                            update={"messages": updated_history}
+                            update=ConversationUpdate(messages=updated_history)
                         )
                     else:
                         # Create a new conversation
                         new_conversation = ConversationCreate(
-                            collection_name=collection_name,
+                            collection_name=None,  # Deprecated
                             model=model,
-                            messages=updated_history
+                            messages=updated_history,
+                            tags=tags,
+                            include_untagged=include_untagged
                         )
                         
                         # Generate a title for the new conversation
@@ -185,13 +181,7 @@ async def chat(request: ChatRequest):
         Chat response
     """
     try:
-        # Check if collection exists
-        collections = chroma_client.list_collections()
-        if request.collection_name not in collections:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Collection '{request.collection_name}' not found"
-            )
+        # In the new tag-based system, we don't need to check collections
         
         # Initialize history
         history = request.history or []
@@ -209,10 +199,11 @@ async def chat(request: ChatRequest):
             if not request.history:
                 history = conversation.messages
         
-        # Generate RAG response
-        response_data = await llm_service.generate_rag_response(
+        # Generate RAG response using tags
+        response_data = await llm_service.generate_rag_response_by_tags(
             query=request.query,
-            collection_name=request.collection_name,
+            tags=request.tags,
+            include_untagged=request.include_untagged,
             history=history,
             model=request.model
         )
@@ -224,14 +215,16 @@ async def chat(request: ChatRequest):
             # Update existing conversation
             conversation_store.update_conversation(
                 conversation_id,
-                update={"messages": updated_history}
+                update=ConversationUpdate(messages=updated_history)
             )
         else:
             # Create a new conversation
             new_conversation = ConversationCreate(
-                collection_name=request.collection_name,
+                collection_name=None,  # Deprecated
                 model=request.model,
-                messages=updated_history
+                messages=updated_history,
+                tags=request.tags,
+                include_untagged=request.include_untagged
             )
             
             # Generate a title for the new conversation

@@ -48,34 +48,44 @@ const ModelQueryComponent = {
             
             <!-- Input area fixed at bottom -->
             <div class="chat-input-area">
-                <!-- Small dropdowns for model and collection selection -->
+                <!-- Small dropdowns for model and tag selection -->
                 <div class="dropdowns-container">
-                    <!-- Collection selection -->
-                    <div class="dropdown-item collection-dropdown">
-                        <label for="collection-select" class="form-label small-label">
-                            <i class="bi bi-collection me-1"></i> Collection
+                    <!-- Tag selection -->
+                    <div class="dropdown-item tag-dropdown">
+                        <label for="tag-select" class="form-label small-label">
+                            <i class="bi bi-tags me-1"></i> Tags
                         </label>
-                        <div class="input-group input-group-sm">
-                            <select 
-                                id="collection-select"
-                                class="form-select form-select-sm"
-                                v-model="selectedCollection"
-                            >
-                                <option value="">Select a collection</option>
-                                <option v-for="collection in collections" :key="collection" :value="collection">
-                                    {{ collection }}
-                                </option>
-                            </select>
-                            <button 
-                                class="btn btn-outline-secondary btn-sm" 
-                                type="button"
-                                @click="createCollection"
-                            >
-                                New
-                            </button>
+                        <div class="tag-selection-container">
+                            <div class="tag-checkboxes" v-if="availableTags.length > 0">
+                                <div class="tag-checkbox" v-for="tag in availableTags" :key="tag">
+                                    <input 
+                                        type="checkbox" 
+                                        :id="'tag-' + tag" 
+                                        :value="tag" 
+                                        v-model="selectedTags"
+                                        class="form-check-input"
+                                    >
+                                    <label :for="'tag-' + tag" class="form-check-label">
+                                        {{ tag }} <span class="tag-count">({{ tagCounts[tag] || 0 }})</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="tag-options" v-if="availableTags.length > 0">
+                                <div class="form-check">
+                                    <input 
+                                        type="checkbox" 
+                                        id="include-untagged" 
+                                        v-model="includeUntagged"
+                                        class="form-check-input"
+                                    >
+                                    <label for="include-untagged" class="form-check-label small-text">
+                                        Include untagged documents
+                                    </label>
+                                </div>
+                            </div>
                         </div>
-                        <div class="form-text small-text" v-if="collections.length === 0">
-                            No collections found. Please upload documents first.
+                        <div class="form-text small-text" v-if="availableTags.length === 0">
+                            No tags found. Upload documents with tags first.
                         </div>
                     </div>
                     
@@ -137,11 +147,14 @@ const ModelQueryComponent = {
                     {{ error }}
                 </div>
                 
-                <!-- Model info -->
+                <!-- Model and tag info -->
                 <div class="model-info text-end">
                     <small class="text-muted">
                         <i class="bi bi-info-circle me-1"></i>
                         Model: {{ selectedModel || 'Default' }}
+                        <span v-if="selectedTags.length > 0"> | Tags: {{ selectedTags.join(', ') }}</span>
+                        <span v-if="includeUntagged && selectedTags.length > 0"> + untagged</span>
+                        <span v-if="selectedTags.length === 0 && includeUntagged"> | All documents</span>
                     </small>
                 </div>
             </div>
@@ -149,8 +162,12 @@ const ModelQueryComponent = {
     `,
     setup() {
         // Reactive state
-        const collections = ref([]);
-        const selectedCollection = ref('');
+        const collections = ref([]);  // Deprecated but kept for compatibility
+        const selectedCollection = ref('');  // Deprecated
+        const availableTags = ref([]);
+        const tagCounts = ref({});
+        const selectedTags = ref([]);
+        const includeUntagged = ref(true);
         const models = ref(availableModels);
         const selectedModel = ref('');
         const queryText = ref('');
@@ -164,17 +181,19 @@ const ModelQueryComponent = {
         const isLoadingConversations = ref(false);
         
         // Local storage keys for persistence
-        const STORAGE_KEY_COLLECTION = 'ragu_selected_collection';
+        const STORAGE_KEY_COLLECTION = 'ragu_selected_collection';  // Deprecated
         const STORAGE_KEY_MODEL = 'ragu_selected_model';
+        const STORAGE_KEY_TAGS = 'ragu_selected_tags';
+        const STORAGE_KEY_INCLUDE_UNTAGGED = 'ragu_include_untagged';
         
         // Computed properties
         const canSubmit = computed(() => {
-            return selectedCollection.value && queryText.value.trim().length > 0;
+            return queryText.value.trim().length > 0;  // No longer require collection selection
         });
         
-        // Fetch collections on component mount and load saved preferences
+        // Fetch tags and load saved preferences on component mount
         onMounted(async () => {
-            await fetchCollections();
+            await fetchTags();
             
             // Load saved model preference
             const savedModel = localStorage.getItem(STORAGE_KEY_MODEL);
@@ -186,8 +205,20 @@ const ModelQueryComponent = {
                 }
             }
             
-            // Note: We'll apply the saved collection after collections are loaded
-            // This happens in the fetchCollections function
+            // Load saved tag preferences
+            const savedTags = localStorage.getItem(STORAGE_KEY_TAGS);
+            if (savedTags) {
+                try {
+                    selectedTags.value = JSON.parse(savedTags);
+                } catch (e) {
+                    console.warn('Failed to parse saved tags:', e);
+                }
+            }
+            
+            const savedIncludeUntagged = localStorage.getItem(STORAGE_KEY_INCLUDE_UNTAGGED);
+            if (savedIncludeUntagged !== null) {
+                includeUntagged.value = savedIncludeUntagged === 'true';
+            }
             
             // Load conversations for the sidebar
             fetchConversations();
@@ -203,10 +234,21 @@ const ModelQueryComponent = {
             });
         });
         
-        // Watch for changes to selectedCollection and save to localStorage
-        watch(selectedCollection, (newValue) => {
-            if (newValue) {
-                localStorage.setItem(STORAGE_KEY_COLLECTION, newValue);
+        // Watch for changes to selectedTags and save to localStorage and update conversation
+        watch(selectedTags, (newValue) => {
+            localStorage.setItem(STORAGE_KEY_TAGS, JSON.stringify(newValue));
+            // Update conversation tag preferences if we have a current conversation (debounced)
+            if (currentConversationId.value) {
+                debouncedUpdateConversationTagPreferences(currentConversationId.value);
+            }
+        }, { deep: true });
+        
+        // Watch for changes to includeUntagged and save to localStorage and update conversation
+        watch(includeUntagged, (newValue) => {
+            localStorage.setItem(STORAGE_KEY_INCLUDE_UNTAGGED, newValue.toString());
+            // Update conversation tag preferences if we have a current conversation (debounced)
+            if (currentConversationId.value) {
+                debouncedUpdateConversationTagPreferences(currentConversationId.value);
             }
         });
         
@@ -217,34 +259,21 @@ const ModelQueryComponent = {
             }
         });
         
-        // Fetch collections from API
-        const fetchCollections = async () => {
+        // Fetch available tags from API
+        const fetchTags = async () => {
             try {
-                const response = await fetch('/api/v1/collections/');
+                const response = await fetch('/api/v1/tags/');
                 if (response.ok) {
                     const data = await response.json();
-                    collections.value = data.collections || [];
-                    
-                    // Check if we have collections
-                    if (data.collections && data.collections.length > 0) {
-                        // Try to load saved collection preference
-                        const savedCollection = localStorage.getItem(STORAGE_KEY_COLLECTION);
-                        
-                        if (savedCollection && data.collections.includes(savedCollection)) {
-                            // Use saved collection if it exists
-                            selectedCollection.value = savedCollection;
-                        } else {
-                            // Otherwise use the first collection
-                            selectedCollection.value = data.collections[0];
-                        }
-                    }
+                    availableTags.value = data.tags || [];
+                    tagCounts.value = data.tag_counts || {};
                 } else {
-                    console.error('Failed to fetch collections');
-                    error.value = 'Failed to fetch collections. Please try again.';
+                    console.error('Failed to fetch tags');
+                    error.value = 'Failed to fetch tags. Please try again.';
                 }
             } catch (err) {
-                console.error('Error fetching collections:', err);
-                error.value = `Error fetching collections: ${err.message}`;
+                console.error('Error fetching tags:', err);
+                error.value = `Error fetching tags: ${err.message}`;
             }
         };
         
@@ -313,15 +342,20 @@ const ModelQueryComponent = {
                     // Set the conversation history
                     conversationHistory.value = conversation.messages;
                     
-                    // Set the collection and model if available
-                    if (conversation.collection_name) {
-                        const previousCollection = selectedCollection.value;
-                        selectedCollection.value = conversation.collection_name;
-
-                        // Show a brief message if the collection changed
-                        if (previousCollection && previousCollection !== conversation.collection_name) {
-                            console.log(`Switched to collection: ${conversation.collection_name}`);
-                        }
+                    // Set the tags and model if available
+                    if (conversation.tags) {
+                        selectedTags.value = conversation.tags;
+                        console.log(`Loaded conversation with tags: ${conversation.tags.join(', ')}`);
+                    } else {
+                        selectedTags.value = [];
+                    }
+                    
+                    // Set the include_untagged preference
+                    if (conversation.include_untagged !== undefined) {
+                        includeUntagged.value = conversation.include_untagged;
+                        console.log(`Loaded conversation with include_untagged: ${conversation.include_untagged}`);
+                    } else {
+                        includeUntagged.value = true;  // Default to true for backward compatibility
                     }
                     
                     if (conversation.model) {
@@ -357,6 +391,45 @@ const ModelQueryComponent = {
             selectConversation(conversationId);
         };
         
+        // Debounce timer for tag preference updates
+        let tagUpdateTimeout = null;
+        
+        // Update conversation tag preferences with debouncing
+        const updateConversationTagPreferences = async (conversationId) => {
+            try {
+                const updateData = {
+                    tags: selectedTags.value,
+                    include_untagged: includeUntagged.value
+                };
+                
+                const response = await fetch(`/api/v1/conversations/${conversationId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(updateData)
+                });
+                
+                if (response.ok) {
+                    console.log('Updated conversation tag preferences');
+                } else {
+                    console.warn('Failed to update conversation tag preferences');
+                }
+            } catch (err) {
+                console.warn('Error updating conversation tag preferences:', err);
+            }
+        };
+        
+        // Debounced version of the update function
+        const debouncedUpdateConversationTagPreferences = (conversationId) => {
+            if (tagUpdateTimeout) {
+                clearTimeout(tagUpdateTimeout);
+            }
+            tagUpdateTimeout = setTimeout(() => {
+                updateConversationTagPreferences(conversationId);
+            }, 500); // Wait 500ms after the last change
+        };
+        
         // Handle Enter key press
         const handleEnterKey = (event) => {
             // Only submit if not pressing shift+enter (which should create a new line)
@@ -384,11 +457,12 @@ const ModelQueryComponent = {
             }, 50);
             
             try {
-                // Prepare request data
+                // Prepare request data for tag-based system
                 const requestData = {
-                    collection_name: selectedCollection.value,
                     query: queryText.value,
-                    history: conversationHistory.value
+                    history: conversationHistory.value,
+                    tags: selectedTags.value,
+                    include_untagged: includeUntagged.value
                 };
                 
                 // Add model if selected
@@ -427,12 +501,19 @@ const ModelQueryComponent = {
                     // Update current conversation ID if provided
                     if (data.conversation_id) {
                         currentConversationId.value = data.conversation_id;
+                        
+                        // Update conversation with current tag preferences
+                        // This ensures the conversation maintains the current tag selection state
+                        updateConversationTagPreferences(currentConversationId.value);
                     }
                     
                     // Refresh sidebar conversations if function is available
                     if (window.refreshSidebarConversations) {
                         window.refreshSidebarConversations();
                     }
+                    
+                    // Refresh tags in case new ones were created
+                    fetchTags();
                     
                     // Scroll to the bottom of the conversation container
                     setTimeout(() => {
@@ -539,8 +620,12 @@ const ModelQueryComponent = {
         };
         
         return {
-            collections,
-            selectedCollection,
+            collections,  // Deprecated but kept for compatibility
+            selectedCollection,  // Deprecated
+            availableTags,
+            tagCounts,
+            selectedTags,
+            includeUntagged,
             models,
             selectedModel,
             queryText,
@@ -555,22 +640,50 @@ const ModelQueryComponent = {
             canSubmit,
             submitQuery,
             handleEnterKey,
-            createCollection,
+            createCollection,  // Deprecated
+            fetchTags,
             fetchConversations,
             selectConversation,
             startNewConversation,
             loadConversation,
+            updateConversationTagPreferences,
             renameConversation,
             confirmDeleteConversation
         };
     }
 };
 
-// Create and mount the Vue app
-const app = createApp({
-    components: {
-        'model-query-component': ModelQueryComponent
+// Create and mount the Vue app with error handling
+try {
+    console.log('Initializing Vue app...');
+    
+    const app = createApp({
+        components: {
+            'model-query-component': ModelQueryComponent
+        }
+    });
+    
+    const container = document.getElementById('model-query-container');
+    if (container) {
+        app.mount('#model-query-container');
+        console.log('Vue app mounted successfully');
+    } else {
+        console.error('Vue container #model-query-container not found');
     }
-});
-
-app.mount('#model-query-container');
+    
+} catch (error) {
+    console.error('Error initializing Vue app:', error);
+    
+    // Fallback: Create basic functionality without Vue
+    const fallbackContainer = document.getElementById('model-query-container');
+    if (fallbackContainer) {
+        fallbackContainer.innerHTML = `
+            <div class="alert alert-warning" role="alert">
+                <h4 class="alert-heading">Chat Interface Error</h4>
+                <p>The chat interface failed to load. Please refresh the page or contact support.</p>
+                <hr>
+                <p class="mb-0">Error: ${error.message}</p>
+            </div>
+        `;
+    }
+}

@@ -61,10 +61,12 @@ class ConversationStore:
         # Create the conversation data
         conversation_data = {
             "id": conversation_id,
-            "collection_name": conversation.collection_name,
+            "collection_name": getattr(conversation, 'collection_name', None),  # Backwards compatibility
             "title": conversation.title or "New Conversation",
             "model": conversation.model,
             "messages": [msg.dict() for msg in conversation.messages],
+            "tags": getattr(conversation, 'tags', None),  # New field for tag-based filtering
+            "include_untagged": getattr(conversation, 'include_untagged', True),  # Include untagged documents setting
             "created_at": now,
             "updated_at": now
         }
@@ -76,10 +78,12 @@ class ConversationStore:
         # Return the created conversation
         return ConversationResponse(
             id=conversation_id,
-            collection_name=conversation.collection_name,
+            collection_name=getattr(conversation, 'collection_name', None),
             title=conversation.title or "New Conversation",
             model=conversation.model,
             messages=conversation.messages,
+            tags=getattr(conversation, 'tags', None),
+            include_untagged=getattr(conversation, 'include_untagged', True),
             created_at=now,
             updated_at=now
         )
@@ -115,10 +119,12 @@ class ConversationStore:
         # Return the conversation
         return ConversationResponse(
             id=conversation_data["id"],
-            collection_name=conversation_data["collection_name"],
+            collection_name=conversation_data.get("collection_name"),  # Backwards compatibility
             title=conversation_data["title"],
             model=conversation_data.get("model"),
             messages=messages,
+            tags=conversation_data.get("tags"),  # Support tags field
+            include_untagged=conversation_data.get("include_untagged", True),  # Support include_untagged field
             created_at=created_at,
             updated_at=updated_at
         )
@@ -147,6 +153,12 @@ class ConversationStore:
         if update.messages is not None:
             conversation_data["messages"] = [msg.dict() for msg in update.messages]
         
+        if update.tags is not None:
+            conversation_data["tags"] = update.tags
+            
+        if update.include_untagged is not None:
+            conversation_data["include_untagged"] = update.include_untagged
+        
         # Update the timestamp
         conversation_data["updated_at"] = datetime.now()
         
@@ -157,10 +169,12 @@ class ConversationStore:
         # Return the updated conversation
         return ConversationResponse(
             id=conversation_id,
-            collection_name=conversation_data["collection_name"],
+            collection_name=conversation_data.get("collection_name"),  # Backwards compatibility
             title=conversation_data["title"],
             model=conversation_data.get("model"),
             messages=[ChatMessage(**msg) if isinstance(msg, dict) else msg for msg in conversation_data["messages"]],
+            tags=conversation_data.get("tags"),  # Support tags field
+            include_untagged=conversation_data.get("include_untagged", True),  # Support include_untagged field
             created_at=conversation_data["created_at"],
             updated_at=conversation_data["updated_at"]
         )
