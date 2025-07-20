@@ -280,7 +280,7 @@ async def delete_document(document_id: str):
 
 @router.get("/", response_model=DocumentList)
 async def list_all_documents(
-    limit: Optional[int] = Query(100, ge=1, le=1000)
+    limit: Optional[int] = Query(None, ge=1, le=10000)
 ):
     """List all documents in the main collection.
     

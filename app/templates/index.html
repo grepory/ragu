@@ -181,11 +181,21 @@
                     filesMenuItem.classList.remove('active');
                     chatInterface.classList.add('active');
                     fileManagement.classList.remove('active');
+                    
+                    // Dispatch event to notify Vue component
+                    document.dispatchEvent(new CustomEvent('tabSwitch', {
+                        detail: { tab: 'chat' }
+                    }));
                 } else if (tabName === 'files') {
                     filesMenuItem.classList.add('active');
                     chatMenuItem.classList.remove('active');
                     fileManagement.classList.add('active');
                     chatInterface.classList.remove('active');
+                    
+                    // Dispatch event to notify other components
+                    document.dispatchEvent(new CustomEvent('tabSwitch', {
+                        detail: { tab: 'files' }
+                    }));
                 }
             }
             
@@ -211,7 +221,7 @@
                 
                 try {
                     // Get all documents from the main collection
-                    const response = await fetch('/api/v1/documents/documents');
+                    const response = await fetch('/api/v1/documents/');
                     if (response.ok) {
                         const data = await response.json();
                         const documents = data.documents || [];

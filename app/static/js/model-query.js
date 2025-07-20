@@ -297,6 +297,25 @@ const ModelQueryComponent = {
             document.addEventListener('startNewConversation', () => {
                 startNewConversation();
             });
+            
+            // Listen for when the user switches to chat interface
+            document.addEventListener('tabSwitch', (event) => {
+                if (event.detail && event.detail.tab === 'chat') {
+                    fetchTags(); // Refresh tags when switching to chat
+                }
+            });
+            
+            // Listen for window focus events (user returning from another tab/window)
+            window.addEventListener('focus', () => {
+                fetchTags(); // Refresh tags when user returns to the window
+            });
+            
+            // Listen for visibility change events
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) {
+                    fetchTags(); // Refresh tags when page becomes visible
+                }
+            });
         });
         
         // Watch for changes to selectedTags and save to localStorage and update conversation
@@ -407,6 +426,9 @@ const ModelQueryComponent = {
                     // Set the conversation history
                     conversationHistory.value = conversation.messages;
                     
+                    // Refresh tags first to get any newly added tags
+                    await fetchTags();
+                    
                     // Set the tags and model if available
                     if (conversation.tags) {
                         selectedTags.value = conversation.tags;
@@ -445,10 +467,13 @@ const ModelQueryComponent = {
         };
         
         // Start a new conversation
-        const startNewConversation = () => {
+        const startNewConversation = async () => {
             // Clear the current conversation
             currentConversationId.value = null;
             conversationHistory.value = [];
+            
+            // Refresh tags to get any newly added tags
+            await fetchTags();
         };
         
         // Load a conversation (called from sidebar)
