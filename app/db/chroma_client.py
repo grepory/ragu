@@ -478,6 +478,50 @@ class ChromaClient:
         """
         return self.delete_documents_by_source(self.DOCUMENTS_COLLECTION, source)
     
+    def get_documents_by_source_from_main_collection(self, source: str) -> Optional[Dict[str, Any]]:
+        """Get documents by source from the main collection.
+        
+        Args:
+            source: Source filename to retrieve
+            
+        Returns:
+            Documents data or None if not found
+        """
+        collection = self.get_documents_collection()
+        try:
+            # First try exact match
+            result = collection.get(
+                where={"source": source},
+                include=["documents", "metadatas"]
+            )
+            
+            if result and result.get("ids"):
+                return result
+            
+            # If no exact match, get all documents and filter manually (similar to delete_documents_by_source)
+            all_docs = collection.get(include=["documents", "metadatas"])
+            if all_docs and all_docs.get("ids"):
+                matching_indices = []
+                for i, doc_id in enumerate(all_docs["ids"]):
+                    doc_source = all_docs["metadatas"][i].get("source", "")
+                    # Check if source matches exactly or ends with the filename (handles temp paths)
+                    if doc_source == source or doc_source.endswith("/" + source) or doc_source.endswith(source):
+                        matching_indices.append(i)
+                
+                if matching_indices:
+                    # Return filtered results in the same format
+                    filtered_result = {
+                        "ids": [all_docs["ids"][i] for i in matching_indices],
+                        "documents": [all_docs["documents"][i] for i in matching_indices],
+                        "metadatas": [all_docs["metadatas"][i] for i in matching_indices]
+                    }
+                    return filtered_result
+            
+            return None
+        except Exception as e:
+            print(f"Error getting documents by source '{source}': {e}")
+            return None
+    
     def update_document_metadata_by_source(self, source: str, new_metadata: Dict[str, Any]) -> int:
         """Update metadata for all document chunks with the given source filename.
         

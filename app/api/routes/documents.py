@@ -15,6 +15,7 @@ from app.models.schemas import (
 )
 from app.db.chroma_client import chroma_client
 from app.utils.document_processor import document_processor
+from app.services.llm_service import llm_service
 
 router = APIRouter()
 
@@ -644,4 +645,58 @@ async def update_document_tags(request: UpdateDocumentTagsRequest):
         raise HTTPException(
             status_code=500,
             detail=f"Failed to update document tags: {str(e)}"
+        )
+
+
+@router.post("/suggest-tags")
+async def suggest_tags_for_source(
+    source_filename: str = Form(...),
+    model: Optional[str] = Form(None)
+):
+    """Generate LLM-powered tag suggestions for a document.
+    
+    Args:
+        source_filename: The source filename of the document
+        model: Optional model to use for tag generation
+        
+    Returns:
+        Suggested tags for the document
+    """
+    try:
+        # Get document chunks from the main collection
+        result = chroma_client.get_documents_by_source_from_main_collection(source_filename)
+        
+        if not result or not result.get("documents"):
+            raise HTTPException(
+                status_code=404,
+                detail=f"No document found with source '{source_filename}'"
+            )
+        
+        # Extract document texts
+        document_texts = result["documents"]
+        
+        # Get existing tags from the system
+        existing_tags = chroma_client.get_all_tags()
+        
+        # Generate tag suggestions using LLM
+        suggested_tags = await llm_service.suggest_tags(
+            document_texts=document_texts,
+            existing_tags=existing_tags,
+            model=model,
+            max_tags=8
+        )
+        
+        return {
+            "status": "success",
+            "source": source_filename,
+            "suggested_tags": suggested_tags,
+            "existing_tags": existing_tags[:20]  # Return some existing tags for reference
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate tag suggestions: {str(e)}"
         )

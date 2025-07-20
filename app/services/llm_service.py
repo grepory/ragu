@@ -525,6 +525,80 @@ class LLMService:
             "sources": sources,
             "history": updated_history
         }
+    
+    async def suggest_tags(
+        self,
+        document_texts: List[str],
+        existing_tags: Optional[List[str]] = None,
+        model: Optional[str] = None,
+        max_tags: int = 8
+    ) -> List[str]:
+        """Generate tag suggestions for document chunks.
+        
+        Args:
+            document_texts: List of document text chunks
+            existing_tags: List of existing tags to prioritize
+            model: Optional model name or provider:model
+            max_tags: Maximum number of tags to suggest
+            
+        Returns:
+            List of suggested tags
+        """
+        # Combine document texts for analysis (limit to prevent token overflow)
+        combined_text = "\n\n".join(document_texts[:5])  # Use first 5 chunks
+        if len(combined_text) > 3000:  # Limit text length
+            combined_text = combined_text[:3000] + "..."
+        
+        # Create tag suggestion prompt
+        existing_tags_text = ""
+        if existing_tags:
+            existing_tags_text = f"\nExisting tags in the system (prioritize these if relevant): {', '.join(existing_tags[:20])}"
+        
+        tag_prompt = f"""Analyze the following document content and suggest {max_tags} relevant tags that best categorize this content.
+
+Instructions:
+- Suggest concise, descriptive tags (1-3 words each)
+- Prioritize existing tags if they are relevant{existing_tags_text}
+- Focus on the main topics, themes, and content types
+- Use lowercase, hyphenated format (e.g., "machine-learning", "data-analysis")
+- Return only the tags, one per line, no explanations
+
+Document content:
+{combined_text}
+
+Suggested tags:"""
+
+        # Get LLM
+        llm = self.get_llm(model=model, streaming=False)
+        
+        # Generate response
+        response = await llm.acomplete(tag_prompt)
+        response_text = response.text.strip()
+        
+        # Parse tags from response
+        suggested_tags = []
+        for line in response_text.split('\n'):
+            tag = line.strip().lower()
+            # Clean up the tag
+            tag = tag.replace('- ', '').replace('* ', '').replace('• ', '')
+            tag = tag.replace('"', '').replace("'", "")
+            
+            # Skip empty lines or lines that don't look like tags
+            if tag and len(tag) > 1 and len(tag) < 30:
+                # Convert spaces to hyphens for consistency
+                tag = tag.replace(' ', '-')
+                suggested_tags.append(tag)
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_tags = []
+        for tag in suggested_tags:
+            if tag not in seen:
+                seen.add(tag)
+                unique_tags.append(tag)
+        
+        # Return up to max_tags
+        return unique_tags[:max_tags]
 
 
 # Create a singleton instance

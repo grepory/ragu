@@ -27,6 +27,7 @@
     <!-- Marked.js for markdown parsing -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     
+    
     <!-- Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
@@ -95,6 +96,10 @@
                                     <button class="btn btn-primary btn-sm" id="upload-files-btn">
                                         <i class="bi bi-cloud-upload me-1"></i>Upload Files
                                     </button>
+                                    <!-- Debug button - remove this later -->
+                                    <button class="btn btn-secondary btn-sm" onclick="testTagModal()" style="margin-left: 10px;">
+                                        <i class="bi bi-bug me-1"></i>Test Modal
+                                    </button>
                                 </div>
                             </div>
                             
@@ -142,6 +147,126 @@
                     </div>
                 </div>
             </main>
+        </div>
+    </div>
+    
+    <!-- SIMPLE TEST MODAL (replacing Vue modal) -->
+    <div id="simpleTagModal" class="simple-modal-overlay" style="display: none;">
+        <div class="simple-modal-content">
+            <div class="simple-modal-header">
+                <h5>Tag Suggestions</h5>
+                <button id="simpleModalClose" style="background: none; border: none; font-size: 1.5rem;">&times;</button>
+            </div>
+            <div class="simple-modal-body">
+                <p>Loading tag suggestions...</p>
+                <div id="simpleTagContainer"></div>
+                <div style="margin: 15px 0; text-align: right;">
+                    <button id="simpleApplyTags" style="display: none; background: #2196f3; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Apply Selected Tags</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vue Tag Suggestion Modal - FORCE HIDDEN -->
+    <div id="tagSuggestionModal" class="tag-suggestion-modal-overlay" v-show="false" @click.self="closeTagModal" style="display: none !important;">
+        <div class="tag-suggestion-modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-tags me-2"></i>Tag Suggestions for {{ currentTagDocument }}
+                </h5>
+                <button type="button" class="btn-close" @click="closeTagModal" aria-label="Close">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- Loading state -->
+                <div v-if="tagModalState === 'loading'" class="text-center p-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-3 mb-0">LLM is analyzing document content...</p>
+                </div>
+                
+                <!-- Main content -->
+                <div v-if="tagModalState === 'loaded'">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Suggested Tags:</label>
+                        <div class="suggested-tags-list">
+                            <div v-if="suggestedTags.length > 0">
+                                <div v-for="tag in suggestedTags" :key="'suggested-' + tag" 
+                                     class="suggested-tag" @click="addTagToSelection(tag)">
+                                    {{ tag }}
+                                </div>
+                            </div>
+                            <p v-else class="text-muted">No tag suggestions generated.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Add Your Own Tags:</label>
+                        <div class="custom-tag-input">
+                            <input type="text" class="form-control" v-model="customTagInput" 
+                                   @keydown.enter.prevent="addCustomTag"
+                                   placeholder="Type a tag and press Enter...">
+                            <small class="form-text text-muted">Press Enter to add custom tags</small>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Selected Tags:</label>
+                        <div class="selected-tags-list">
+                            <div v-if="selectedTagsList.length > 0">
+                                <div v-for="tag in selectedTagsList" :key="'selected-' + tag" class="selected-tag">
+                                    {{ tag }}
+                                    <button type="button" class="remove-tag" @click="removeTagFromSelection(tag)">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <p v-else class="text-muted">No tags selected yet.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Existing Tags:</label>
+                        <div class="existing-tags-list">
+                            <div v-if="existingTags.length > 0">
+                                <div v-for="tag in existingTags" :key="'existing-' + tag" 
+                                     class="existing-tag" @click="addTagToSelection(tag)">
+                                    {{ tag }}
+                                </div>
+                            </div>
+                            <p v-else class="text-muted">No existing tags found.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Error state -->
+                <div v-if="tagModalState === 'error'" class="alert alert-danger">
+                    <h6 class="alert-heading">Failed to Generate Tag Suggestions</h6>
+                    <p class="mb-0">There was an error analyzing the document. You can still add custom tags manually.</p>
+                    <div class="mt-3">
+                        <input type="text" class="form-control" v-model="customTagInput" 
+                               @keydown.enter.prevent="addCustomTag"
+                               placeholder="Type a tag and press Enter...">
+                        <div class="selected-tags-list mt-3">
+                            <div v-if="selectedTagsList.length > 0">
+                                <div v-for="tag in selectedTagsList" :key="'error-selected-' + tag" class="selected-tag">
+                                    {{ tag }}
+                                    <button type="button" class="remove-tag" @click="removeTagFromSelection(tag)">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <p v-else class="text-muted">No tags selected yet.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @click="closeTagModal">Cancel</button>
+                <button type="button" class="btn btn-primary" @click="applySelectedTags" :disabled="selectedTagsList.length === 0">
+                    <i class="bi bi-check-lg me-1"></i>Apply Tags
+                </button>
+            </div>
         </div>
     </div>
     
@@ -1403,18 +1528,27 @@
                                     <i class="bi bi-check-circle text-success"></i>
                                     <span class="status-text text-success">Uploaded</span>
                                 `;
+                                
+                                // For successful uploads, show tag suggestion modal
+                                results.push({
+                                    fileName: file.name,
+                                    success: success,
+                                    message: success ? result.message : result.detail || 'Upload failed',
+                                    showTagSuggestion: true  // TODO: Set to false to disable modal for now
+                                });
                             } else {
                                 statusElement.innerHTML = `
                                     <i class="bi bi-x-circle text-danger"></i>
                                     <span class="status-text text-danger">Failed</span>
                                 `;
+                                
+                                results.push({
+                                    fileName: file.name,
+                                    success: success,
+                                    message: success ? result.message : result.detail || 'Upload failed',
+                                    showTagSuggestion: false
+                                });
                             }
-                            
-                            results.push({
-                                fileName: file.name,
-                                success: success,
-                                message: success ? result.message : result.detail || 'Upload failed'
-                            });
                             
                         } catch (error) {
                             // Update progress item for error
@@ -1427,7 +1561,8 @@
                             results.push({
                                 fileName: file.name,
                                 success: false,
-                                message: error.message
+                                message: error.message,
+                                showTagSuggestion: false
                             });
                         }
                     }
@@ -1439,7 +1574,24 @@
                     // Hide progress area after a delay
                     setTimeout(() => {
                         progressArea.style.display = 'none';
-                    }, 3000);
+                    }, 2000);
+                    
+                    // Show simple tag suggestion modals for successful uploads
+                    console.log(`Processing ${successfulUploads.length} successful uploads for tag suggestions`);
+                    for (const result of successfulUploads) {
+                        console.log(`Checking upload result:`, result);
+                        if (result.showTagSuggestion) {
+                            console.log(`Triggering simple tag modal for: ${result.fileName}`);
+                            try {
+                                await showSimpleTagModal(result.fileName);
+                                console.log(`Simple tag modal completed for: ${result.fileName}`);
+                            } catch (error) {
+                                console.error(`Simple tag modal failed for ${result.fileName}:`, error);
+                            }
+                        } else {
+                            console.log(`Skipping tag modal for: ${result.fileName} (showTagSuggestion=false)`);
+                        }
+                    }
                     
                     // Refresh documents list
                     if (successfulUploads.length > 0) {
@@ -1457,6 +1609,638 @@
                     alert(`Error uploading files: ${error.message}`);
                 }
             }
+            
+            // Global reference to tag modal Vue app
+            let tagModalApp = null;
+            
+            async function showTagSuggestionModal(fileName) {
+                return new Promise((resolve) => {
+                    console.log(`Showing tag suggestion modal for: ${fileName}`);
+                    
+                    // Initialize Vue app for the modal if not already done
+                    if (!window.tagModalMethods) {
+                        console.log('Initializing tag modal methods for first use...');
+                        initializeTagModal();
+                        // Give Vue a moment to mount
+                        setTimeout(() => {
+                            proceedWithModal();
+                        }, 100);
+                    } else {
+                        proceedWithModal();
+                    }
+                    
+                    function proceedWithModal() {
+                        // Set up the modal
+                        window.tagModalMethods.showModal(fileName);
+                        window.tagModalMethods.setOnClose(() => {
+                            console.log(`Tag modal closed for: ${fileName}`);
+                            resolve();
+                        });
+                        
+                        // Start tag generation with timeout fallback
+                        generateTagSuggestions(fileName).catch(error => {
+                            console.error(`Error in generateTagSuggestions for ${fileName}:`, error);
+                            // Force close modal on error
+                            window.tagModalMethods.setError();
+                        });
+                    }
+                });
+            }
+            
+            function initializeTagModal() {
+                console.log('initializeTagModal called');
+                
+                if (!window.Vue) {
+                    console.error('Vue is not available, cannot initialize tag modal');
+                    return;
+                }
+                
+                const { createApp, ref } = Vue;
+                
+                const modalApp = createApp({
+                    setup() {
+                        console.log('Vue modal app setup() called');
+                        const showTagModal = ref(false); // Explicitly start closed
+                        const tagModalState = ref('loading'); // 'loading', 'loaded', 'error'
+                        const currentTagDocument = ref('');
+                        const suggestedTags = ref([]);
+                        const existingTags = ref([]);
+                        const selectedTagsList = ref([]);
+                        const customTagInput = ref('');
+                        let onModalClose = null;
+                        
+                        const closeTagModal = () => {
+                            showTagModal.value = false;
+                            if (onModalClose) {
+                                onModalClose();
+                                onModalClose = null;
+                            }
+                        };
+                        
+                        const addTagToSelection = (tag) => {
+                            const normalizedTag = tag.toLowerCase().replace(/\s+/g, '-');
+                            if (!selectedTagsList.value.includes(normalizedTag)) {
+                                selectedTagsList.value.push(normalizedTag);
+                            }
+                        };
+                        
+                        const removeTagFromSelection = (tag) => {
+                            const index = selectedTagsList.value.indexOf(tag);
+                            if (index > -1) {
+                                selectedTagsList.value.splice(index, 1);
+                            }
+                        };
+                        
+                        const addCustomTag = () => {
+                            if (customTagInput.value.trim()) {
+                                addTagToSelection(customTagInput.value.trim());
+                                customTagInput.value = '';
+                            }
+                        };
+                        
+                        const applySelectedTags = async () => {
+                            if (!currentTagDocument.value || selectedTagsList.value.length === 0) {
+                                return;
+                            }
+                            
+                            try {
+                                const response = await fetch('/api/v1/documents/tags', {
+                                    method: 'PUT',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({
+                                        source: currentTagDocument.value,
+                                        tags: selectedTagsList.value
+                                    })
+                                });
+                                
+                                if (response.ok) {
+                                    closeTagModal();
+                                    // Refresh tags and documents
+                                    await loadTagFilters();
+                                    console.log(`Applied tags to ${currentTagDocument.value}: [${selectedTagsList.value.join(', ')}]`);
+                                } else {
+                                    const errorData = await response.json();
+                                    alert(`Failed to apply tags: ${errorData.detail || 'Unknown error'}`);
+                                }
+                            } catch (error) {
+                                console.error('Error applying tags:', error);
+                                alert(`Error applying tags: ${error.message}`);
+                            }
+                        };
+                        
+                        // Expose methods globally for external access
+                        window.tagModalMethods = {
+                            showModal: (fileName) => {
+                                console.log(`tagModalMethods.showModal called for: ${fileName}`);
+                                // Prevent showing modal if already visible
+                                if (showTagModal.value) {
+                                    console.warn('Modal already visible, ignoring showModal call');
+                                    return;
+                                }
+                                currentTagDocument.value = fileName;
+                                selectedTagsList.value = [];
+                                suggestedTags.value = [];
+                                existingTags.value = [];
+                                customTagInput.value = '';
+                                tagModalState.value = 'loading';
+                                showTagModal.value = true;
+                            },
+                            setData: (data) => {
+                                console.log('tagModalMethods.setData called with:', data);
+                                suggestedTags.value = data.suggested_tags || [];
+                                existingTags.value = data.existing_tags || [];
+                                tagModalState.value = 'loaded';
+                            },
+                            setError: () => {
+                                console.log('tagModalMethods.setError called');
+                                tagModalState.value = 'error';
+                                // Auto-close modal after 5 seconds in error state
+                                setTimeout(() => {
+                                    if (tagModalState.value === 'error') {
+                                        console.log('Auto-closing modal after error timeout');
+                                        closeTagModal();
+                                    }
+                                }, 5000);
+                            },
+                            setOnClose: (callback) => {
+                                console.log('tagModalMethods.setOnClose called');
+                                onModalClose = callback;
+                            },
+                            closeModal: () => {
+                                console.log('tagModalMethods.closeModal called - forcing modal close');
+                                closeTagModal();
+                            }
+                        };
+                        
+                        return {
+                            showTagModal,
+                            tagModalState,
+                            currentTagDocument,
+                            suggestedTags,
+                            existingTags,
+                            selectedTagsList,
+                            customTagInput,
+                            closeTagModal,
+                            addTagToSelection,
+                            removeTagFromSelection,
+                            addCustomTag,
+                            applySelectedTags
+                        };
+                    }
+                });
+                
+                tagModalApp = modalApp.mount('#tagSuggestionModal');
+                console.log('Tag modal Vue app initialized');
+            }
+            
+            async function generateTagSuggestions(fileName) {
+                try {
+                    console.log(`Generating tag suggestions for: ${fileName}`);
+                    const formData = new FormData();
+                    formData.append('source_filename', fileName);
+                    
+                    const response = await fetch('/api/v1/documents/suggest-tags', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    console.log(`Tag suggestion API response status: ${response.status}`);
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log('Tag suggestion data:', data);
+                        window.tagModalMethods.setData(data);
+                    } else {
+                        const errorText = await response.text();
+                        console.error('Tag suggestion API error:', errorText);
+                        window.tagModalMethods.setError();
+                    }
+                } catch (error) {
+                    console.error('Error generating tag suggestions:', error);
+                    window.tagModalMethods.setError();
+                }
+            }
+            
+            // Debug function to test modal
+            window.testTagModal = async function() {
+                console.log('Testing tag modal...');
+                await showTagSuggestionModal('test-document.txt');
+                console.log('Modal test completed');
+            };
+            
+            // Debug function to force close any stuck modal
+            window.forceCloseTagModal = function() {
+                console.log('Force closing tag modal...');
+                if (window.tagModalMethods) {
+                    window.tagModalMethods.closeModal();
+                } else {
+                    // Fallback: remove modal elements directly
+                    const modal = document.querySelector('.tag-suggestion-modal-overlay');
+                    if (modal) {
+                        modal.style.display = 'none';
+                    }
+                }
+            };
+            
+            // SIMPLE MODAL FUNCTIONS
+            window.showSimpleModal = function(fileName = 'test-file.txt') {
+                console.log('Showing simple modal for:', fileName);
+                const modal = document.getElementById('simpleTagModal');
+                const container = document.getElementById('simpleTagContainer');
+                const applyBtn = document.getElementById('simpleApplyTags');
+                
+                if (modal) {
+                    modal.style.display = 'flex';
+                    container.innerHTML = '<p>Testing tag suggestions...</p>';
+                    applyBtn.style.display = 'none';
+                    
+                    // Test API call
+                    testTagAPI(fileName, container, applyBtn);
+                } else {
+                    console.error('Simple modal not found');
+                }
+            };
+            
+            // Promise-based modal for upload flow
+            async function showSimpleTagModal(fileName) {
+                return new Promise((resolve) => {
+                    console.log('Showing simple tag modal with Promise for:', fileName);
+                    const modal = document.getElementById('simpleTagModal');
+                    const container = document.getElementById('simpleTagContainer');
+                    const applyBtn = document.getElementById('simpleApplyTags');
+                    
+                    if (!modal) {
+                        console.error('Simple modal not found');
+                        resolve();
+                        return;
+                    }
+                    
+                    // Show modal
+                    modal.style.display = 'flex';
+                    container.innerHTML = '<p>LLM is analyzing document content...</p>';
+                    applyBtn.style.display = 'none';
+                    
+                    // Store current resolve function
+                    window.currentModalResolve = resolve;
+                    
+                    // Start tag generation
+                    generateTagSuggestionsForSimpleModal(fileName, container, applyBtn);
+                });
+            }
+            
+            window.hideSimpleModal = function() {
+                console.log('Hiding simple modal');
+                const modal = document.getElementById('simpleTagModal');
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+                
+                // Resolve any pending Promise
+                if (window.currentModalResolve) {
+                    window.currentModalResolve();
+                    window.currentModalResolve = null;
+                }
+            };
+            
+            async function generateTagSuggestionsForSimpleModal(fileName, container, applyBtn) {
+                try {
+                    console.log('Generating tag suggestions for:', fileName);
+                    const formData = new FormData();
+                    formData.append('source_filename', fileName);
+                    
+                    const response = await fetch('/api/v1/documents/suggest-tags', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log('Tag API success:', data);
+                        
+                        let tagsHTML = '<h6>Suggested Tags:</h6><div style="margin: 10px 0;">';
+                        data.suggested_tags.forEach(tag => {
+                            tagsHTML += `<span class="simple-tag" data-tag="${tag}" data-tag-type="suggested" style="background: #e3f2fd; color: #1976d2; padding: 4px 12px; margin: 2px; border-radius: 16px; display: inline-block; cursor: pointer; border: 1px solid #2196f3;">${tag}</span>`;
+                        });
+                        tagsHTML += '</div>';
+                        
+                        if (data.existing_tags && data.existing_tags.length > 0) {
+                            tagsHTML += '<h6>Existing Tags:</h6><div style="margin: 10px 0;">';
+                            data.existing_tags.slice(0, 10).forEach(tag => {
+                                tagsHTML += `<span class="simple-tag" data-tag="${tag}" data-tag-type="existing" style="background: #f5f5f5; color: #333; padding: 4px 12px; margin: 2px; border-radius: 16px; display: inline-block; cursor: pointer; border: 1px solid #ddd;">${tag}</span>`;
+                            });
+                            tagsHTML += '</div>';
+                        }
+                        
+                        container.innerHTML = tagsHTML;
+                        applyBtn.style.display = 'block';
+                        
+                        // Store current file name and suggested tags
+                        window.currentModalFileName = fileName;
+                        window.currentSuggestedTags = data.suggested_tags;
+                        
+                        // Add click handlers for tag selection
+                        setupTagSelection();
+                        
+                        // Ensure apply button event listener is attached
+                        setupApplyButtonListener();
+                        
+                    } else {
+                        const errorText = await response.text();
+                        console.error('Tag API error:', errorText);
+                        container.innerHTML = `<p style="color: red;">Error loading tag suggestions: ${errorText}</p>`;
+                        setTimeout(() => window.hideSimpleModal(), 3000);
+                    }
+                } catch (error) {
+                    console.error('Tag API exception:', error);
+                    container.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+                    setTimeout(() => window.hideSimpleModal(), 3000);
+                }
+            }
+            
+            function setupApplyButtonListener() {
+                const applyBtn = document.getElementById('simpleApplyTags');
+                if (applyBtn) {
+                    // Remove any existing listeners to prevent duplicates
+                    applyBtn.replaceWith(applyBtn.cloneNode(true));
+                    
+                    // Get the new button and add listener
+                    const newApplyBtn = document.getElementById('simpleApplyTags');
+                    newApplyBtn.addEventListener('click', function(e) {
+                        console.log('Apply button clicked (dynamic listener)');
+                        e.preventDefault();
+                        e.stopPropagation();
+                        applySelectedTags();
+                    });
+                    console.log('Dynamic apply button listener added');
+                } else {
+                    console.error('Apply button not found for dynamic listener setup');
+                }
+            }
+            
+            function setupTagSelection() {
+                const tags = document.querySelectorAll('.simple-tag');
+                
+                // Initialize fresh selection set
+                window.selectedTags = new Set();
+                
+                console.log('Setting up tag selection for', tags.length, 'tags');
+                
+                tags.forEach(tag => {
+                    // Reset visual state first
+                    tag.style.opacity = '1';
+                    tag.style.transform = 'none';
+                    tag.style.backgroundColor = tag.getAttribute('data-tag-type') === 'suggested' ? '#e3f2fd' : '#f5f5f5';
+                    
+                    tag.addEventListener('click', function() {
+                        const tagName = this.getAttribute('data-tag');
+                        console.log('Tag clicked:', tagName);
+                        
+                        if (window.selectedTags.has(tagName)) {
+                            // Deselect - restore original appearance
+                            window.selectedTags.delete(tagName);
+                            this.style.backgroundColor = this.getAttribute('data-tag-type') === 'suggested' ? '#e3f2fd' : '#f5f5f5';
+                            this.style.opacity = '1';
+                            this.style.transform = 'none';
+                            console.log('Deselected:', tagName);
+                        } else {
+                            // Select - make it look selected
+                            window.selectedTags.add(tagName);
+                            this.style.backgroundColor = '#4caf50'; // Green for selected
+                            this.style.color = 'white';
+                            this.style.opacity = '1';
+                            this.style.transform = 'scale(0.95)';
+                            console.log('Selected:', tagName);
+                        }
+                        
+                        console.log('Currently selected tags:', Array.from(window.selectedTags));
+                        updateApplyButtonText();
+                    });
+                });
+                
+                // No auto-selection - users must manually select tags
+                console.log('No tags pre-selected - user must choose manually');
+                updateApplyButtonText();
+            }
+            
+            function updateApplyButtonText() {
+                const applyBtn = document.getElementById('simpleApplyTags');
+                const count = window.selectedTags ? window.selectedTags.size : 0;
+                if (applyBtn) {
+                    if (count === 0) {
+                        applyBtn.textContent = 'Select tags to apply';
+                        applyBtn.disabled = true;
+                        applyBtn.style.opacity = '0.5';
+                    } else {
+                        applyBtn.textContent = `Apply ${count} Selected Tag${count !== 1 ? 's' : ''}`;
+                        applyBtn.disabled = false;
+                        applyBtn.style.opacity = '1';
+                    }
+                }
+            }
+            
+            async function applySelectedTags() {
+                console.log('applySelectedTags called');
+                console.log('currentModalFileName:', window.currentModalFileName);
+                console.log('selectedTags:', window.selectedTags);
+                
+                if (!window.currentModalFileName || !window.selectedTags) {
+                    console.error('No file or tags selected');
+                    alert('No file or tags selected - debug info in console');
+                    return;
+                }
+                
+                const selectedTagsArray = Array.from(window.selectedTags);
+                
+                if (selectedTagsArray.length === 0) {
+                    console.log('No tags selected, nothing to apply');
+                    alert('Please select at least one tag to apply');
+                    return;
+                }
+                
+                console.log('Applying tags:', selectedTagsArray, 'to file:', window.currentModalFileName);
+                
+                // Show loading state
+                const applyBtn = document.getElementById('simpleApplyTags');
+                if (applyBtn) {
+                    applyBtn.textContent = 'Applying...';
+                    applyBtn.disabled = true;
+                }
+                
+                try {
+                    const response = await fetch('/api/v1/documents/tags', {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            source: window.currentModalFileName,
+                            tags: selectedTagsArray
+                        })
+                    });
+                    
+                    console.log('API response status:', response.status);
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        console.log('Tags applied successfully:', result);
+                        
+                        // Reset button
+                        if (applyBtn) {
+                            applyBtn.textContent = 'Apply Selected Tags';
+                            applyBtn.disabled = false;
+                        }
+                        
+                        // Refresh the documents list and tags
+                        if (typeof loadDocumentsList === 'function') {
+                            console.log('Refreshing documents list');
+                            loadDocumentsList();
+                        }
+                        if (typeof loadTagFilters === 'function') {
+                            console.log('Refreshing tag filters');
+                            loadTagFilters();
+                        }
+                        
+                        console.log('Hiding modal after successful tag application');
+                        window.hideSimpleModal();
+                    } else {
+                        console.error('API response not ok:', response.status);
+                        const errorText = await response.text();
+                        console.error('Error response body:', errorText);
+                        
+                        let errorMessage;
+                        try {
+                            const errorData = JSON.parse(errorText);
+                            errorMessage = errorData.detail || 'Unknown error';
+                        } catch {
+                            errorMessage = errorText || 'Unknown error';
+                        }
+                        
+                        // Reset button
+                        if (applyBtn) {
+                            applyBtn.textContent = 'Apply Selected Tags';
+                            applyBtn.disabled = false;
+                        }
+                        
+                        alert(`Failed to apply tags: ${errorMessage}`);
+                    }
+                } catch (error) {
+                    console.error('Error applying tags:', error);
+                    
+                    // Reset button
+                    if (applyBtn) {
+                        applyBtn.textContent = 'Apply Selected Tags';
+                        applyBtn.disabled = false;
+                    }
+                    
+                    alert(`Error applying tags: ${error.message}`);
+                }
+            }
+            
+            async function testTagAPI(fileName, container, applyBtn) {
+                try {
+                    console.log('Testing tag API for:', fileName);
+                    const formData = new FormData();
+                    formData.append('source_filename', fileName);
+                    
+                    const response = await fetch('/api/v1/documents/suggest-tags', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log('Tag API success:', data);
+                        container.innerHTML = '<h6>Suggested Tags:</h6>' + 
+                            data.suggested_tags.map(tag => `<span style="background: #e0e0e0; padding: 4px 8px; margin: 2px; border-radius: 4px; display: inline-block;">${tag}</span>`).join('');
+                        applyBtn.style.display = 'block';
+                    } else {
+                        const errorText = await response.text();
+                        console.error('Tag API error:', errorText);
+                        container.innerHTML = '<p style="color: red;">Error: ' + errorText + '</p>';
+                    }
+                } catch (error) {
+                    console.error('Tag API exception:', error);
+                    container.innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
+                }
+            }
+            
+            // Debug function to manually trigger modal for most recent upload
+            window.testTagModalForLastUpload = async function() {
+                try {
+                    const response = await fetch('/api/v1/documents/');
+                    const data = await response.json();
+                    if (data.documents && data.documents.length > 0) {
+                        const lastDoc = data.documents[0];
+                        const fileName = lastDoc.metadata.source;
+                        console.log('Testing simple modal for last uploaded file:', fileName);
+                        window.showSimpleModal(fileName);
+                    } else {
+                        console.log('No documents found to test');
+                        window.showSimpleModal('test-file.txt'); // Test with fake file
+                    }
+                } catch (error) {
+                    console.error('Error testing modal:', error);
+                }
+            };
+            
+            // Initialize tag modal on page load
+            document.addEventListener('DOMContentLoaded', function() {
+                console.log('DOM Content Loaded - FORCIBLY HIDING TAG MODAL');
+                
+                // Force hide modal elements
+                const modal = document.getElementById('tagSuggestionModal');
+                if (modal) {
+                    modal.style.display = 'none';
+                    modal.style.visibility = 'hidden';
+                    modal.style.opacity = '0';
+                    console.log('Force-hidden Vue modal element');
+                }
+                
+                // Setup simple modal event listeners
+                const simpleModalClose = document.getElementById('simpleModalClose');
+                const simpleModal = document.getElementById('simpleTagModal');
+                const simpleApplyTags = document.getElementById('simpleApplyTags');
+                
+                if (simpleModalClose) {
+                    simpleModalClose.addEventListener('click', window.hideSimpleModal);
+                }
+                
+                if (simpleModal) {
+                    simpleModal.addEventListener('click', function(e) {
+                        if (e.target === simpleModal) {
+                            window.hideSimpleModal();
+                        }
+                    });
+                }
+                
+                if (simpleApplyTags) {
+                    simpleApplyTags.addEventListener('click', function(e) {
+                        console.log('Apply tags button clicked - event:', e);
+                        e.preventDefault();
+                        e.stopPropagation();
+                        applySelectedTags();
+                    });
+                    console.log('Apply tags event listener added successfully');
+                } else {
+                    console.error('Apply tags button not found during setup');
+                }
+                
+                // Add escape key handler to close modals
+                document.addEventListener('keydown', function(event) {
+                    if (event.key === 'Escape') {
+                        console.log('Escape key pressed - force hiding all modals');
+                        const vueModal = document.getElementById('tagSuggestionModal');
+                        if (vueModal) {
+                            vueModal.style.display = 'none';
+                        }
+                        window.hideSimpleModal();
+                    }
+                });
+                
+                console.log('Simple modal event listeners setup complete');
+            });
             
             // Check localStorage for active tab on page load
             const activeTab = localStorage.getItem('activeTab');
