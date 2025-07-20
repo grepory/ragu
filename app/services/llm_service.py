@@ -557,7 +557,7 @@ class LLMService:
         tag_prompt = f"""Analyze the following document content and suggest {max_tags} relevant tags that best categorize this content.
 
 Instructions:
-- Suggest concise, descriptive tags (1-3 words each)
+- Suggest concise, descriptive tags (1-3 words each), favoring 1-word tags.
 - Prioritize existing tags if they are relevant{existing_tags_text}
 - Focus on the main topics, themes, and content types
 - Use lowercase, hyphenated format (e.g., "machine-learning", "data-analysis")
