@@ -3,6 +3,7 @@
     --oxford-stone: #C4B49D;
     --joas-white: #DACBB4;
     --salon-drab: #494135;
+    --smelt-black: #2E2E2E;
 }
 
 /* Custom styles for RAGU front-end */
@@ -308,45 +309,277 @@
     color: rgba(73, 65, 53, 0.6);
 }
 
-/* SIMPLE TEST MODAL */
+/* SIMPLE MODAL - THEMED TO MATCH APPLICATION */
 .simple-modal-overlay {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    z-index: 1000;
+    background-color: rgba(73, 65, 53, 0.8); /* --salon-drab with transparency */
+    z-index: 2000;
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 2rem;
 }
 
 .simple-modal-content {
-    background: white;
-    border-radius: 8px;
-    padding: 20px;
-    max-width: 500px;
-    width: 90%;
+    background-color: var(--oxford-stone);
+    border: 1px solid var(--salon-drab);
+    border-radius: 0.5rem;
+    max-width: 700px;
+    width: 100%;
     max-height: 80vh;
     overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
 }
 
 .simple-modal-header {
+    background-color: var(--salon-drab);
+    color: var(--joas-white);
+    border-bottom: 1px solid var(--oxford-stone);
+    padding: 1rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 10px;
+    border-radius: 0.5rem 0.5rem 0 0;
 }
 
+.simple-modal-header h5 {
+    color: var(--joas-white);
+    font-weight: 600;
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.simple-modal-header button {
+    background: none;
+    border: none;
+    color: var(--joas-white);
+    font-size: 1.5rem;
+    cursor: pointer;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.25rem;
+    transition: background-color 0.2s ease;
+}
+
+.simple-modal-header button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.simple-modal-body {
+    background-color: var(--oxford-stone);
+    color: var(--salon-drab);
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.simple-modal-body h6 {
+    color: var(--salon-drab);
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin: 1rem 0 0.5rem 0;
+}
+
+.simple-modal-body h6:first-child {
+    margin-top: 0;
+}
+
+/* Themed tag styles */
 .simple-tag {
     transition: all 0.2s ease !important;
+    font-size: 0.85rem;
+    font-weight: 500;
 }
 
 .simple-tag:hover {
-    transform: scale(1.05) !important;
+    transform: scale(1.02) !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.simple-tag[data-tag-type="suggested"] {
+    background-color: var(--joas-white) !important;
+    color: var(--smelt-black) !important;
+    border: 1px solid var(--joas-white) !important;
+}
+
+.simple-tag[data-tag-type="existing"] {
+    background-color: var(--joas-white) !important;
+    color: var(--salon-drab) !important;
+    border: 1px solid var(--salon-drab) !important;
+}
+
+.simple-tag.selected {
+    background-color: var(--salon-drab) !important;
+    color: var(--joas-white) !important;
+    border: 1px solid var(--salon-drab) !important;
+    transform: scale(0.98);
+}
+
+/* Apply button theming */
+.simple-modal-body button {
+    background-color: var(--salon-drab);
+    border-color: var(--salon-drab);
+    color: var(--joas-white);
+    border: 1px solid var(--salon-drab);
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 500;
+}
+
+.simple-modal-body button:hover:not(:disabled) {
+    background-color: #3a3328;
+    border-color: #3a3328;
+}
+
+.simple-modal-body button:disabled {
+    background-color: rgba(73, 65, 53, 0.3);
+    border-color: rgba(73, 65, 53, 0.3);
+    color: rgba(218, 203, 180, 0.6);
+    cursor: not-allowed;
+}
+
+/* Confirmation modal button styles */
+.confirmation-cancel-btn {
+    background-color: var(--oxford-stone) !important;
+    border-color: var(--salon-drab) !important;
+    color: var(--salon-drab) !important;
+    border: 1px solid var(--salon-drab) !important;
+    padding: 0.5rem 1rem !important;
+    border-radius: 0.375rem !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    font-weight: 500 !important;
+}
+
+.confirmation-cancel-btn:hover {
+    background-color: var(--salon-drab) !important;
+    border-color: var(--salon-drab) !important;
+    color: var(--joas-white) !important;
+}
+
+.confirmation-confirm-btn {
+    background-color: #dc3545 !important;
+    border-color: #dc3545 !important;
+    color: white !important;
+    border: 1px solid #dc3545 !important;
+    padding: 0.5rem 1rem !important;
+    border-radius: 0.375rem !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    font-weight: 500 !important;
+}
+
+.confirmation-confirm-btn:hover {
+    background-color: #c82333 !important;
+    border-color: #bd2130 !important;
+}
+
+/* Alert modal button styles */
+.alert-ok-btn {
+    padding: 0.5rem 1rem !important;
+    border: 1px solid !important;
+    border-radius: 4px !important;
+    font-weight: 500 !important;
+    transition: all 0.15s ease !important;
+    cursor: pointer !important;
+}
+
+.alert-success-btn {
+    background-color: #28a745 !important;
+    border-color: #28a745 !important;
+    color: white !important;
+}
+
+.alert-success-btn:hover {
+    background-color: #218838 !important;
+    border-color: #1e7e34 !important;
+}
+
+.alert-error-btn {
+    background-color: #dc3545 !important;
+    border-color: #dc3545 !important;
+    color: white !important;
+}
+
+.alert-error-btn:hover {
+    background-color: #c82333 !important;
+    border-color: #bd2130 !important;
+}
+
+.alert-warning-btn {
+    background-color: #ffc107 !important;
+    border-color: #ffc107 !important;
+    color: #212529 !important;
+}
+
+.alert-warning-btn:hover {
+    background-color: #e0a800 !important;
+    border-color: #d39e00 !important;
+}
+
+.alert-info-btn {
+    background-color: #17a2b8 !important;
+    border-color: #17a2b8 !important;
+    color: white !important;
+}
+
+.alert-info-btn:hover {
+    background-color: #138496 !important;
+    border-color: #117a8b !important;
+}
+
+/* Primary button styling for application theme */
+.btn-primary {
+    background-color: var(--salon-drab) !important;
+    border-color: var(--salon-drab) !important;
+    color: var(--joas-white) !important;
+    font-weight: 500 !important;
+    border-radius: 0.375rem !important;
+    padding: 0.5rem 1rem !important;
+    transition: all 0.15s ease !important;
+}
+
+.btn-primary:hover {
+    background-color: #3a3328 !important;
+    border-color: #3a3328 !important;
+    color: var(--joas-white) !important;
+}
+
+.btn-primary:focus, .btn-primary:active {
+    background-color: #2f2a20 !important;
+    border-color: #2f2a20 !important;
+    color: var(--joas-white) !important;
+    box-shadow: 0 0 0 0.2rem rgba(73, 65, 53, 0.25) !important;
+}
+
+.btn-primary:disabled {
+    background-color: rgba(73, 65, 53, 0.3) !important;
+    border-color: rgba(73, 65, 53, 0.3) !important;
+    color: rgba(218, 203, 180, 0.6) !important;
+    cursor: not-allowed !important;
+}
+
+/* Upload button specific styling */
+#upload-files-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    font-size: 0.875rem !important;
+}
+
+#upload-files-btn .bi {
+    font-size: 1rem !important;
 }
 
 /* FORCE HIDE TAG MODAL FOR DEBUGGING */
@@ -639,6 +872,7 @@
     gap: 0.375rem;
     background-color: var(--oxford-stone);
     border: 2px solid var(--oxford-stone);
+    color: var(--smelt-black);
     border-radius: 1.25rem;
     padding: 0.375rem 0.75rem;
     transition: all 0.2s ease;
@@ -750,7 +984,7 @@
     top: 100%;
     left: 0;
     right: 0;
-    background-color: white;
+    background-color: var(--joas-white);
     border: 1px solid var(--oxford-stone);
     border-radius: 0.375rem;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -807,13 +1041,13 @@
 }
 
 .edit-tags-btn.btn-outline-success {
-    border-color: #198754;
-    color: #198754;
+    border-color: var(--salon-drab);
+    color: var(--salon-drab);
 }
 
 .edit-tags-btn.btn-outline-success:hover {
-    background-color: #198754;
-    color: white;
+    background-color: var(--salon-drab);
+    color: var(--salon-drab);
 }
 
 /* Model dropdown styling to match tags */
@@ -869,7 +1103,7 @@ h1 {
     padding: 0.75rem 1rem;
     background-color: #5C5244;
     color: var(--joas-white);
-    border-bottom: 1px solid #dee2e6;
+    border-bottom: 1px solid var(--smelt-black);
     position: relative;
     z-index: 1200;
 }
@@ -1068,7 +1302,7 @@ h1 {
 
 .conversation-date {
     font-size: 0.75rem;
-    color: #6c757d;
+    color: var(--smelt-black);
 }
 
 .conversation-actions {
@@ -1114,7 +1348,7 @@ h1 {
 .app-header {
     padding: 1rem 2rem;
     background-color: var(--oxford-stone);
-    border-bottom: 1px solid #dee2e6;
+    border-bottom: 1px solid var(--oxford-stone);
 }
 
 .app-header h1 {
@@ -1132,7 +1366,7 @@ main {
 .app-footer {
     padding: 1rem;
     background-color: var(--oxford-stone);
-    border-top: 1px solid #dee2e6;
+    border-top: 1px solid var(--oxford-stone);
 }
 
 /* Content Panel Styles */
@@ -1438,7 +1672,7 @@ main {
 
 .document-info {
     font-size: 0.8rem;
-    color: #6c757d;
+    color: var(--smelt-black);
     margin-bottom: 0.25rem;
 }
 
