@@ -291,14 +291,21 @@
 }
 
 .filter-controls input {
-    min-width: 150px;
-    background-color: rgba(255, 255, 255, 0.9);
-    border: 1px solid rgba(73, 65, 53, 0.2);
+    min-width: 200px;
+    background-color: var(--joas-white) !important;
+    border: 1px solid var(--salon-drab) !important;
+    color: var(--salon-drab);
+    font-size: 0.85rem;
 }
 
 .filter-controls input:focus {
-    border-color: var(--salon-drab);
-    box-shadow: 0 0 0 0.2rem rgba(73, 65, 53, 0.25);
+    border-color: var(--salon-drab) !important;
+    box-shadow: 0 0 0 0.2rem rgba(73, 65, 53, 0.25) !important;
+    background-color: var(--joas-white) !important;
+}
+
+.filter-controls input::placeholder {
+    color: rgba(73, 65, 53, 0.6);
 }
 
 .tag-filter-info {

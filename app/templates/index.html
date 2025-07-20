@@ -103,7 +103,7 @@
                                     <h6><i class="bi bi-tags me-2"></i>Filter by Tags</h6>
                                     <div class="filter-controls">
                                         <input type="text" class="form-control form-control-sm" id="tag-filter-search" 
-                                               placeholder="Search tags..." style="display: none;">
+                                               placeholder="Search tags...">
                                         <button class="btn btn-outline-secondary btn-sm" id="clear-filters-btn">
                                             <i class="bi bi-x-circle me-1"></i>Clear
                                         </button>
@@ -394,9 +394,11 @@
                             tagFilterSearch.style.display = 'none';
                             tagFilterInfo.style.display = 'none';
                         } else {
-                            // Show search and info if there are many tags
+                            // Always show search input when there are tags
+                            tagFilterSearch.style.display = 'block';
+                            
+                            // Show info if there are many tags
                             if (allTags.length > 10) {
-                                tagFilterSearch.style.display = 'block';
                                 tagFilterInfo.style.display = 'block';
                                 totalTagsCount.textContent = allTags.length;
                             }
@@ -1331,6 +1333,16 @@
                     document.querySelectorAll('.tag-filter-checkbox').forEach(checkbox => {
                         checkbox.checked = false;
                     });
+                    
+                    // Clear search input
+                    const tagFilterSearch = document.getElementById('tag-filter-search');
+                    if (tagFilterSearch) {
+                        tagFilterSearch.value = '';
+                        tagSearchQuery = '';
+                        // Re-render filters to show all tags
+                        renderTagFilters();
+                    }
+                    
                     // Show all documents
                     filterDocuments();
                 });
