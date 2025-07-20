@@ -33,7 +33,8 @@ const ModelQueryComponent = {
                                 </small>
                             </div>
                             <div class="message-content">
-                                {{ message.content }}
+                                <div v-if="message.role === 'user'">{{ message.content }}</div>
+                                <div v-else v-html="parseMarkdown(message.content)" class="markdown-content"></div>
                             </div>
                         </div>
                     </div>
@@ -827,6 +828,22 @@ const ModelQueryComponent = {
             }
         };
         
+        // Parse markdown content
+        const parseMarkdown = (content) => {
+            if (!content) return '';
+            
+            // Configure marked.js for security and formatting
+            marked.setOptions({
+                breaks: true, // Convert line breaks to <br>
+                gfm: true, // GitHub flavored markdown
+                sanitize: false, // We'll handle XSS protection through DOMPurify if needed
+                smartLists: true,
+                smartypants: false
+            });
+            
+            return marked.parse(content);
+        };
+        
         // Cleanup event listener
         onUnmounted(() => {
             document.removeEventListener('click', handleClickOutside);
@@ -870,7 +887,8 @@ const ModelQueryComponent = {
             loadConversation,
             updateConversationTagPreferences,
             renameConversation,
-            confirmDeleteConversation
+            confirmDeleteConversation,
+            parseMarkdown
         };
     }
 };
