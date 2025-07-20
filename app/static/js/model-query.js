@@ -56,8 +56,34 @@ const ModelQueryComponent = {
                             <i class="bi bi-tags me-1"></i> Tags
                         </label>
                         <div class="tag-selection-container">
-                            <div class="tag-checkboxes" v-if="availableTags.length > 0">
-                                <div class="tag-checkbox" v-for="tag in availableTags" :key="tag">
+                            <div v-if="availableTags.length > 10" class="tag-search-container">
+                                <input 
+                                    type="text" 
+                                    class="form-control form-control-sm tag-search-input" 
+                                    placeholder="Search tags..." 
+                                    v-model="tagSearchQuery"
+                                >
+                                <small class="text-muted">{{ filteredTags.length }} of {{ availableTags.length }} tags</small>
+                            </div>
+                            <div class="tag-checkboxes" v-if="availableTags.length > 0" 
+                                 :class="{ 'many-tags': availableTags.length > 50, 'virtual-scroll': availableTags.length > 100 }">
+                                <div v-if="popularTags.length > 0 && !tagSearchQuery" class="popular-tags-section">
+                                    <div class="popular-tags-header">Popular</div>
+                                    <div class="tag-checkbox" v-for="tag in popularTags" :key="'popular-' + tag">
+                                        <input 
+                                            type="checkbox" 
+                                            :id="'tag-' + tag" 
+                                            :value="tag" 
+                                            v-model="selectedTags"
+                                            class="form-check-input"
+                                        >
+                                        <label :for="'tag-' + tag" class="form-check-label">
+                                            {{ tag }} <span class="tag-count">({{ tagCounts[tag] || 0 }})</span>
+                                        </label>
+                                    </div>
+                                    <div class="tags-separator"></div>
+                                </div>
+                                <div class="tag-checkbox" v-for="tag in filteredTags" :key="tag">
                                     <input 
                                         type="checkbox" 
                                         :id="'tag-' + tag" 
@@ -68,6 +94,9 @@ const ModelQueryComponent = {
                                     <label :for="'tag-' + tag" class="form-check-label">
                                         {{ tag }} <span class="tag-count">({{ tagCounts[tag] || 0 }})</span>
                                     </label>
+                                </div>
+                                <div v-if="filteredTags.length === 0 && tagSearchQuery" class="no-tags-found">
+                                    No tags found matching "{{ tagSearchQuery }}"
                                 </div>
                             </div>
                             <div class="tag-options" v-if="availableTags.length > 0">
@@ -168,6 +197,7 @@ const ModelQueryComponent = {
         const tagCounts = ref({});
         const selectedTags = ref([]);
         const includeUntagged = ref(true);
+        const tagSearchQuery = ref('');
         const models = ref(availableModels);
         const selectedModel = ref('');
         const queryText = ref('');
@@ -189,6 +219,41 @@ const ModelQueryComponent = {
         // Computed properties
         const canSubmit = computed(() => {
             return queryText.value.trim().length > 0;  // No longer require collection selection
+        });
+        
+        // Popular tags (top 5 by count, minimum 2 documents)
+        const popularTags = computed(() => {
+            const sortedTags = Object.entries(tagCounts.value)
+                .filter(([tag, count]) => count >= 2)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5)
+                .map(([tag]) => tag);
+            return sortedTags;
+        });
+        
+        // Filtered tags based on search query, excluding popular tags when not searching
+        const filteredTags = computed(() => {
+            let tags = availableTags.value;
+            
+            // Remove popular tags from main list if showing popular section
+            if (popularTags.value.length > 0 && !tagSearchQuery.value.trim()) {
+                tags = tags.filter(tag => !popularTags.value.includes(tag));
+            }
+            
+            // Apply search filter
+            if (tagSearchQuery.value.trim()) {
+                const query = tagSearchQuery.value.toLowerCase();
+                tags = availableTags.value.filter(tag => 
+                    tag.toLowerCase().includes(query)
+                );
+            }
+            
+            // Sort by count (descending) then alphabetically
+            return tags.sort((a, b) => {
+                const countDiff = (tagCounts.value[b] || 0) - (tagCounts.value[a] || 0);
+                if (countDiff !== 0) return countDiff;
+                return a.localeCompare(b);
+            });
         });
         
         // Fetch tags and load saved preferences on component mount
@@ -626,6 +691,9 @@ const ModelQueryComponent = {
             tagCounts,
             selectedTags,
             includeUntagged,
+            tagSearchQuery,
+            popularTags,
+            filteredTags,
             models,
             selectedModel,
             queryText,

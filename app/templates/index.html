@@ -95,12 +95,19 @@
                             <div class="tag-filter-section">
                                 <div class="tag-filter-header">
                                     <h6><i class="bi bi-tags me-2"></i>Filter by Tags</h6>
-                                    <button class="btn btn-outline-secondary btn-sm" id="clear-filters-btn">
-                                        <i class="bi bi-x-circle me-1"></i>Clear
-                                    </button>
+                                    <div class="filter-controls">
+                                        <input type="text" class="form-control form-control-sm" id="tag-filter-search" 
+                                               placeholder="Search tags..." style="display: none;">
+                                        <button class="btn btn-outline-secondary btn-sm" id="clear-filters-btn">
+                                            <i class="bi bi-x-circle me-1"></i>Clear
+                                        </button>
+                                    </div>
                                 </div>
                                 <div id="tag-filter-list" class="tag-filter-list">
                                     <!-- Tag filters will be loaded here -->
+                                </div>
+                                <div id="tag-filter-info" class="tag-filter-info" style="display: none;">
+                                    <small class="text-muted"><span id="visible-tags-count">0</span> of <span id="total-tags-count">0</span> tags shown</small>
                                 </div>
                             </div>
                             
@@ -272,9 +279,13 @@
                                         ` : ''}
                                     </div>
                                     <div class="document-tags-edit" style="display: none;">
-                                        <input type="text" class="form-control form-control-sm tag-input" 
-                                               placeholder="Enter tags separated by commas" 
-                                               value="${doc.metadata.tags ? doc.metadata.tags.join(', ') : ''}">
+                                        <div class="tag-input-container">
+                                            <input type="text" class="form-control form-control-sm tag-input" 
+                                                   placeholder="Enter tags separated by commas" 
+                                                   value="${doc.metadata.tags ? doc.metadata.tags.join(', ') : ''}"
+                                                   autocomplete="off">
+                                            <div class="tag-autocomplete-dropdown" style="display: none;"></div>
+                                        </div>
                                     </div>
                                     <div class="no-tags-message" ${doc.metadata.tags && doc.metadata.tags.length > 0 ? 'style="display: none;"' : ''}>
                                         <small class="text-muted">No tags assigned</small>
@@ -314,58 +325,168 @@
                     });
                 });
                 
-                // Add event listeners for tag input fields
+                // Add event listeners for tag input fields with autocomplete
                 document.querySelectorAll('.tag-input').forEach(input => {
+                    setupTagAutocomplete(input);
+                    
                     input.addEventListener('keydown', function(e) {
                         if (e.key === 'Enter') {
                             e.preventDefault();
                             const source = this.closest('.document-item').getAttribute('data-source');
+                            hideAutocomplete(input);
                             saveDocumentTags(source);
                         } else if (e.key === 'Escape') {
                             e.preventDefault();
                             const source = this.closest('.document-item').getAttribute('data-source');
+                            hideAutocomplete(input);
                             cancelTagEdit(source);
                         }
                     });
                     
-                    input.addEventListener('blur', function() {
-                        const source = this.closest('.document-item').getAttribute('data-source');
-                        saveDocumentTags(source);
+                    input.addEventListener('blur', function(e) {
+                        // Small delay to allow clicking on autocomplete items
+                        setTimeout(() => {
+                            const source = this.closest('.document-item').getAttribute('data-source');
+                            hideAutocomplete(input);
+                            saveDocumentTags(source);
+                        }, 200);
                     });
                 });
             }
             
-            // Load tag filters
+            // Global variables for tag management
+            let allTags = [];
+            let allTagCounts = {};
+            let tagSearchQuery = '';
+            
+            // Load tag filters with enhanced organization
             async function loadTagFilters() {
                 const tagFilterList = document.getElementById('tag-filter-list');
+                const tagFilterSearch = document.getElementById('tag-filter-search');
+                const tagFilterInfo = document.getElementById('tag-filter-info');
+                const totalTagsCount = document.getElementById('total-tags-count');
                 
                 try {
                     const response = await fetch('/api/v1/tags/');
                     if (response.ok) {
                         const data = await response.json();
-                        const tags = data.tags || [];
-                        const tagCounts = data.tag_counts || {};
+                        allTags = data.tags || [];
+                        allTagCounts = data.tag_counts || {};
                         
-                        if (tags.length === 0) {
+                        if (allTags.length === 0) {
                             tagFilterList.innerHTML = '<p class="text-muted small">No tags found</p>';
+                            tagFilterSearch.style.display = 'none';
+                            tagFilterInfo.style.display = 'none';
                         } else {
-                            tagFilterList.innerHTML = tags.map(tag => `
-                                <div class="tag-filter-item" data-tag="${tag}">
-                                    <input type="checkbox" id="filter-${tag}" class="tag-filter-checkbox">
-                                    <label for="filter-${tag}">${tag} (${tagCounts[tag] || 0})</label>
-                                </div>
-                            `).join('');
+                            // Show search and info if there are many tags
+                            if (allTags.length > 10) {
+                                tagFilterSearch.style.display = 'block';
+                                tagFilterInfo.style.display = 'block';
+                                totalTagsCount.textContent = allTags.length;
+                            }
                             
-                            // Add change event listeners to tag filter checkboxes
-                            document.querySelectorAll('.tag-filter-checkbox').forEach(checkbox => {
-                                checkbox.addEventListener('change', filterDocuments);
-                            });
+                            renderTagFilters();
+                            setupTagFilterSearch();
                         }
                     }
                 } catch (error) {
                     console.error('Error loading tag filters:', error);
                     tagFilterList.innerHTML = '<p class="text-danger small">Error loading tags</p>';
                 }
+            }
+            
+            // Render tag filters with organization
+            function renderTagFilters(searchQuery = '') {
+                const tagFilterList = document.getElementById('tag-filter-list');
+                const visibleTagsCount = document.getElementById('visible-tags-count');
+                
+                // Filter tags based on search
+                let filteredTags = allTags;
+                if (searchQuery.trim()) {
+                    const query = searchQuery.toLowerCase();
+                    filteredTags = allTags.filter(tag => 
+                        tag.toLowerCase().includes(query)
+                    );
+                }
+                
+                // Get popular tags (top 5, minimum 2 documents)
+                const popularTags = Object.entries(allTagCounts)
+                    .filter(([tag, count]) => count >= 2)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5)
+                    .map(([tag]) => tag);
+                
+                // Separate popular from regular tags
+                let regularTags = filteredTags;
+                if (!searchQuery.trim() && popularTags.length > 0) {
+                    regularTags = filteredTags.filter(tag => !popularTags.includes(tag));
+                }
+                
+                // Sort tags by count then alphabetically
+                regularTags.sort((a, b) => {
+                    const countDiff = (allTagCounts[b] || 0) - (allTagCounts[a] || 0);
+                    if (countDiff !== 0) return countDiff;
+                    return a.localeCompare(b);
+                });
+                
+                let html = '';
+                
+                // Add popular tags section if not searching
+                if (!searchQuery.trim() && popularTags.length > 0) {
+                    html += '<div class="popular-tags-section">';
+                    html += '<div class="popular-tags-header">Popular</div>';
+                    popularTags.forEach(tag => {
+                        html += `
+                            <div class="tag-filter-item" data-tag="${tag}">
+                                <input type="checkbox" id="filter-${tag}" class="tag-filter-checkbox">
+                                <label for="filter-${tag}">${tag} (${allTagCounts[tag] || 0})</label>
+                            </div>
+                        `;
+                    });
+                    html += '<div class="tags-separator"></div>';
+                    html += '</div>';
+                }
+                
+                // Add regular tags
+                if (regularTags.length > 0) {
+                    regularTags.forEach(tag => {
+                        html += `
+                            <div class="tag-filter-item" data-tag="${tag}">
+                                <input type="checkbox" id="filter-${tag}" class="tag-filter-checkbox">
+                                <label for="filter-${tag}">${tag} (${allTagCounts[tag] || 0})</label>
+                            </div>
+                        `;
+                    });
+                } else if (searchQuery.trim()) {
+                    html += '<div class="no-tags-found">No tags found matching "' + searchQuery + '"</div>';
+                }
+                
+                tagFilterList.innerHTML = html;
+                
+                // Update counts
+                if (visibleTagsCount) {
+                    visibleTagsCount.textContent = filteredTags.length;
+                }
+                
+                // Add event listeners
+                document.querySelectorAll('.tag-filter-checkbox').forEach(checkbox => {
+                    checkbox.addEventListener('change', filterDocuments);
+                });
+            }
+            
+            // Setup tag filter search functionality
+            function setupTagFilterSearch() {
+                const tagFilterSearch = document.getElementById('tag-filter-search');
+                if (!tagFilterSearch) return;
+                
+                let searchTimeout;
+                tagFilterSearch.addEventListener('input', function(e) {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        tagSearchQuery = e.target.value;
+                        renderTagFilters(tagSearchQuery);
+                    }, 300); // Debounce search
+                });
             }
             
             // Filter documents by selected tags
@@ -528,6 +649,90 @@
                 } else {
                     tagsDisplay.innerHTML = '';
                 }
+            }
+            
+            // Tag autocomplete functionality
+            function setupTagAutocomplete(input) {
+                if (!input) return;
+                
+                input.addEventListener('input', function(e) {
+                    const currentValue = e.target.value;
+                    const lastCommaIndex = currentValue.lastIndexOf(',');
+                    const currentTag = currentValue.substring(lastCommaIndex + 1).trim().toLowerCase();
+                    
+                    if (currentTag.length < 2) {
+                        hideAutocomplete(input);
+                        return;
+                    }
+                    
+                    // Find matching tags
+                    const matches = allTags.filter(tag => 
+                        tag.toLowerCase().includes(currentTag) && 
+                        !currentValue.toLowerCase().includes(tag.toLowerCase())
+                    ).slice(0, 6); // Limit to 6 suggestions
+                    
+                    if (matches.length > 0) {
+                        showAutocomplete(input, matches, currentTag);
+                    } else {
+                        hideAutocomplete(input);
+                    }
+                });
+            }
+            
+            function showAutocomplete(input, matches, currentTag) {
+                const dropdown = input.parentElement.querySelector('.tag-autocomplete-dropdown');
+                if (!dropdown) return;
+                
+                let html = '';
+                matches.forEach(tag => {
+                    // Highlight the matching part
+                    const regex = new RegExp(`(${currentTag})`, 'gi');
+                    const highlightedTag = tag.replace(regex, '<strong>$1</strong>');
+                    const count = allTagCounts[tag] || 0;
+                    
+                    html += `
+                        <div class="tag-autocomplete-item" data-tag="${tag}">
+                            ${highlightedTag} <small class="tag-count">(${count})</small>
+                        </div>
+                    `;
+                });
+                
+                dropdown.innerHTML = html;
+                dropdown.style.display = 'block';
+                
+                // Add click handlers
+                dropdown.querySelectorAll('.tag-autocomplete-item').forEach(item => {
+                    item.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const tagToAdd = this.getAttribute('data-tag');
+                        addTagToInput(input, tagToAdd);
+                        hideAutocomplete(input);
+                    });
+                });
+            }
+            
+            function hideAutocomplete(input) {
+                const dropdown = input.parentElement.querySelector('.tag-autocomplete-dropdown');
+                if (dropdown) {
+                    dropdown.style.display = 'none';
+                }
+            }
+            
+            function addTagToInput(input, tag) {
+                const currentValue = input.value;
+                const lastCommaIndex = currentValue.lastIndexOf(',');
+                
+                let newValue;
+                if (lastCommaIndex === -1) {
+                    // No comma found, replace entire value
+                    newValue = tag;
+                } else {
+                    // Replace the part after the last comma
+                    newValue = currentValue.substring(0, lastCommaIndex + 1) + ' ' + tag;
+                }
+                
+                input.value = newValue + ', ';
+                input.focus();
             }
             
             // Create collection functionality (deprecated but kept for compatibility)
