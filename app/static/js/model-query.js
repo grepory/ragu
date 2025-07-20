@@ -14,7 +14,7 @@ const availableModels = [
 ];
 
 // Create Vue app
-const { createApp, ref, onMounted, computed, watch } = Vue;
+const { createApp, ref, onMounted, onUnmounted, computed, watch, nextTick } = Vue;
 
 const ModelQueryComponent = {
     template: `
@@ -52,67 +52,96 @@ const ModelQueryComponent = {
                 <div class="dropdowns-container">
                     <!-- Tag selection -->
                     <div class="dropdown-item tag-dropdown">
-                        <label for="tag-select" class="form-label small-label">
+                        <label class="form-label small-label">
                             <i class="bi bi-tags me-1"></i> Tags
                         </label>
-                        <div class="tag-selection-container">
-                            <div v-if="availableTags.length > 10" class="tag-search-container">
-                                <input 
-                                    type="text" 
-                                    class="form-control form-control-sm tag-search-input" 
-                                    placeholder="Search tags..." 
-                                    v-model="tagSearchQuery"
-                                >
-                                <small class="text-muted">{{ filteredTags.length }} of {{ availableTags.length }} tags</small>
-                            </div>
-                            <div class="tag-checkboxes" v-if="availableTags.length > 0" 
-                                 :class="{ 'many-tags': availableTags.length > 50, 'virtual-scroll': availableTags.length > 100 }">
-                                <div v-if="popularTags.length > 0 && !tagSearchQuery" class="popular-tags-section">
-                                    <div class="popular-tags-header">Popular</div>
-                                    <div class="tag-checkbox" v-for="tag in popularTags" :key="'popular-' + tag">
-                                        <input 
-                                            type="checkbox" 
-                                            :id="'tag-' + tag" 
-                                            :value="tag" 
-                                            v-model="selectedTags"
-                                            class="form-check-input"
-                                        >
-                                        <label :for="'tag-' + tag" class="form-check-label">
-                                            {{ tag }} <span class="tag-count">({{ tagCounts[tag] || 0 }})</span>
-                                        </label>
-                                    </div>
-                                    <div class="tags-separator"></div>
-                                </div>
-                                <div class="tag-checkbox" v-for="tag in filteredTags" :key="tag">
+                        
+                        <!-- Tag Selection Dropdown -->
+                        <div class="tag-selector-dropdown" :class="{ 'is-open': tagDropdownOpen }">
+                            <!-- Dropdown Toggle Button -->
+                            <button 
+                                type="button" 
+                                class="tag-selector-button"
+                                @click="toggleTagDropdown"
+                            >
+                                <span v-if="selectedTags.length === 0" class="placeholder-text">Select tags...</span>
+                                <span v-else class="selected-count">{{ selectedTags.length }} tag{{ selectedTags.length !== 1 ? 's' : '' }} selected</span>
+                                <i class="bi bi-chevron-down dropdown-arrow" :class="{ 'rotated': tagDropdownOpen }"></i>
+                            </button>
+                            
+                            <!-- Dropdown Content -->
+                            <div v-if="tagDropdownOpen" class="tag-dropdown-content">
+                                <!-- Search Input -->
+                                <div class="tag-search-section">
                                     <input 
-                                        type="checkbox" 
-                                        :id="'tag-' + tag" 
-                                        :value="tag" 
-                                        v-model="selectedTags"
-                                        class="form-check-input"
+                                        ref="tagSearchInput"
+                                        type="text" 
+                                        class="tag-search-input" 
+                                        placeholder="Type to search tags..."
+                                        v-model="tagSearchQuery"
+                                        @input="onTagSearch"
+                                        @mousedown="$event.stopPropagation()"
                                     >
-                                    <label :for="'tag-' + tag" class="form-check-label">
-                                        {{ tag }} <span class="tag-count">({{ tagCounts[tag] || 0 }})</span>
-                                    </label>
                                 </div>
-                                <div v-if="filteredTags.length === 0 && tagSearchQuery" class="no-tags-found">
+                                
+                                <!-- Selected Tags Display -->
+                                <div v-if="selectedTags.length > 0" class="selected-tags-section">
+                                    <div class="selected-tags-header">Selected Tags</div>
+                                    <div class="selected-tags-list">
+                                        <div 
+                                            v-for="tag in selectedTags" 
+                                            :key="'selected-' + tag" 
+                                            class="selected-tag-item"
+                                        >
+                                            <span class="tag-name">{{ tag }}</span>
+                                            <button 
+                                                type="button" 
+                                                class="remove-tag-btn"
+                                                @click="removeTag(tag)"
+                                                @mousedown="$event.stopPropagation()"
+                                            >
+                                                <i class="bi bi-x"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Available Tags -->
+                                <div v-if="availableTagsForSelection.length > 0" class="available-tags-section">
+                                    <div v-if="selectedTags.length > 0" class="available-tags-header">Available Tags</div>
+                                    <div class="available-tags-list">
+                                        <div 
+                                            v-for="tagResult in availableTagsForSelection.slice(0, 10)" 
+                                            :key="'available-' + tagResult.item" 
+                                            class="available-tag-item"
+                                            @click="addTag(tagResult.item)"
+                                            @mousedown="$event.stopPropagation()"
+                                        >
+                                            <span class="tag-name">{{ tagResult.item }}</span>
+                                            <span class="tag-count">({{ tagCounts[tagResult.item] || 0 }})</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- No Results -->
+                                <div v-if="tagSearchQuery && availableTagsForSelection.length === 0" class="no-results">
                                     No tags found matching "{{ tagSearchQuery }}"
                                 </div>
-                            </div>
-                            <div class="tag-options" v-if="availableTags.length > 0">
-                                <div class="form-check">
-                                    <input 
-                                        type="checkbox" 
-                                        id="include-untagged" 
-                                        v-model="includeUntagged"
-                                        class="form-check-input"
-                                    >
-                                    <label for="include-untagged" class="form-check-label small-text">
-                                        Include untagged documents
+                                
+                                <!-- Include Untagged Option -->
+                                <div class="include-untagged-section">
+                                    <label class="checkbox-label">
+                                        <input 
+                                            type="checkbox" 
+                                            v-model="includeUntagged"
+                                            @mousedown="$event.stopPropagation()"
+                                        >
+                                        <span>Include untagged documents</span>
                                     </label>
                                 </div>
                             </div>
                         </div>
+                        
                         <div class="form-text small-text" v-if="availableTags.length === 0">
                             No tags found. Upload documents with tags first.
                         </div>
@@ -198,6 +227,8 @@ const ModelQueryComponent = {
         const selectedTags = ref([]);
         const includeUntagged = ref(true);
         const tagSearchQuery = ref('');
+        const tagDropdownOpen = ref(false);
+        const tagSearchInput = ref(null);
         const models = ref(availableModels);
         const selectedModel = ref('');
         const queryText = ref('');
@@ -221,44 +252,67 @@ const ModelQueryComponent = {
             return queryText.value.trim().length > 0;  // No longer require collection selection
         });
         
-        // Popular tags (top 5 by count, minimum 2 documents)
-        const popularTags = computed(() => {
-            const sortedTags = Object.entries(tagCounts.value)
-                .filter(([tag, count]) => count >= 2)
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 5)
-                .map(([tag]) => tag);
-            return sortedTags;
+        // Initialize Fuse.js for fuzzy search
+        let fuse = null;
+        
+        // Available tags for selection with fuzzy search
+        const availableTagsForSelection = computed(() => {
+            const unselectedTags = availableTags.value.filter(tag => !selectedTags.value.includes(tag));
+            
+            if (!tagSearchQuery.value.trim()) {
+                // No search query - return all unselected tags sorted by count
+                return unselectedTags
+                    .sort((a, b) => {
+                        const countDiff = (tagCounts.value[b] || 0) - (tagCounts.value[a] || 0);
+                        if (countDiff !== 0) return countDiff;
+                        return a.localeCompare(b);
+                    })
+                    .map(tag => ({ item: tag }));
+            }
+            
+            // Use Fuse.js for fuzzy search
+            try {
+                if (!fuse || !fuse.list || fuse.list.length !== unselectedTags.length) {
+                    console.log('Initializing Fuse.js with', unselectedTags.length, 'tags');
+                    fuse = new Fuse(unselectedTags, {
+                        threshold: 0.4, // More lenient matching
+                        distance: 100,
+                        minMatchCharLength: 1,
+                        includeScore: true
+                    });
+                }
+                
+                const searchResults = fuse.search(tagSearchQuery.value);
+                console.log('Fuse search for "' + tagSearchQuery.value + '" found', searchResults.length, 'results');
+                
+                return searchResults.map(result => ({ 
+                    item: result.item,
+                    score: result.score 
+                }));
+            } catch (error) {
+                console.error('Fuse.js error:', error);
+                // Fallback to simple string matching
+                const query = tagSearchQuery.value.toLowerCase();
+                return unselectedTags
+                    .filter(tag => tag.toLowerCase().includes(query))
+                    .map(tag => ({ item: tag }));
+            }
         });
         
-        // Filtered tags based on search query, excluding popular tags when not searching
-        const filteredTags = computed(() => {
-            let tags = availableTags.value;
-            
-            // Remove popular tags from main list if showing popular section
-            if (popularTags.value.length > 0 && !tagSearchQuery.value.trim()) {
-                tags = tags.filter(tag => !popularTags.value.includes(tag));
+        // Handle click outside to close dropdown
+        const handleClickOutside = (event) => {
+            const dropdown = document.querySelector('.tag-selector-dropdown');
+            if (dropdown && !dropdown.contains(event.target)) {
+                tagDropdownOpen.value = false;
             }
-            
-            // Apply search filter
-            if (tagSearchQuery.value.trim()) {
-                const query = tagSearchQuery.value.toLowerCase();
-                tags = availableTags.value.filter(tag => 
-                    tag.toLowerCase().includes(query)
-                );
-            }
-            
-            // Sort by count (descending) then alphabetically
-            return tags.sort((a, b) => {
-                const countDiff = (tagCounts.value[b] || 0) - (tagCounts.value[a] || 0);
-                if (countDiff !== 0) return countDiff;
-                return a.localeCompare(b);
-            });
-        });
+        };
         
         // Fetch tags and load saved preferences on component mount
         onMounted(async () => {
             await fetchTags();
+            
+            // Add click outside listener
+            document.addEventListener('click', handleClickOutside);
             
             // Load saved model preference
             const savedModel = localStorage.getItem(STORAGE_KEY_MODEL);
@@ -358,6 +412,70 @@ const ModelQueryComponent = {
             } catch (err) {
                 console.error('Error fetching tags:', err);
                 error.value = `Error fetching tags: ${err.message}`;
+            }
+        };
+        
+        // Tag dropdown methods
+        const toggleTagDropdown = () => {
+            tagDropdownOpen.value = !tagDropdownOpen.value;
+            if (tagDropdownOpen.value) {
+                // Check dropdown positioning and focus search input
+                nextTick(() => {
+                    // Focus the search input
+                    if (tagSearchInput.value) {
+                        tagSearchInput.value.focus();
+                    }
+                    
+                    // Check if dropdown would extend beyond viewport
+                    const dropdown = document.querySelector('.tag-dropdown-content');
+                    const dropdownContainer = document.querySelector('.tag-selector-dropdown');
+                    if (dropdown && dropdownContainer) {
+                        const rect = dropdownContainer.getBoundingClientRect();
+                        const dropdownHeight = 400; // max height
+                        const spaceBelow = window.innerHeight - rect.bottom;
+                        const spaceAbove = rect.top;
+                        
+                        if (spaceBelow < dropdownHeight && spaceAbove > spaceBelow) {
+                            dropdownContainer.classList.add('dropdown-up');
+                        } else {
+                            dropdownContainer.classList.remove('dropdown-up');
+                        }
+                    }
+                });
+            }
+        };
+        
+        const handleTagDropdownBlur = (event) => {
+            // Small delay to allow clicks inside dropdown to register
+            setTimeout(() => {
+                // Check if focus moved to an element outside the dropdown
+                const activeElement = document.activeElement;
+                const dropdownContainer = event.currentTarget.closest('.tag-selector-dropdown');
+                
+                if (!dropdownContainer || !dropdownContainer.contains(activeElement)) {
+                    tagDropdownOpen.value = false;
+                }
+            }, 150);
+        };
+        
+        const onTagSearch = (event) => {
+            // Force reactivity update for the search query
+            const newValue = event.target.value;
+            tagSearchQuery.value = newValue;
+            console.log('Search query updated to:', newValue);
+        };
+        
+        const addTag = (tag) => {
+            if (!selectedTags.value.includes(tag)) {
+                selectedTags.value.push(tag);
+                tagSearchQuery.value = ''; // Clear search after selection
+            }
+        };
+        
+        const removeTag = (tag) => {
+            const index = selectedTags.value.indexOf(tag);
+            if (index > -1) {
+                selectedTags.value.splice(index, 1);
             }
         };
         
@@ -709,6 +827,11 @@ const ModelQueryComponent = {
             }
         };
         
+        // Cleanup event listener
+        onUnmounted(() => {
+            document.removeEventListener('click', handleClickOutside);
+        });
+        
         return {
             collections,  // Deprecated but kept for compatibility
             selectedCollection,  // Deprecated
@@ -717,8 +840,9 @@ const ModelQueryComponent = {
             selectedTags,
             includeUntagged,
             tagSearchQuery,
-            popularTags,
-            filteredTags,
+            tagDropdownOpen,
+            tagSearchInput,
+            availableTagsForSelection,
             models,
             selectedModel,
             queryText,
@@ -733,6 +857,11 @@ const ModelQueryComponent = {
             canSubmit,
             submitQuery,
             handleEnterKey,
+            toggleTagDropdown,
+            handleTagDropdownBlur,
+            onTagSearch,
+            addTag,
+            removeTag,
             createCollection,  // Deprecated
             fetchTags,
             fetchConversations,
