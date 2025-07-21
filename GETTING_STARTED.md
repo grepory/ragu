@@ -179,7 +179,7 @@ If you encounter any issues not covered here, please:
 
 1. Check the detailed documentation in the README.md
 2. Look for error messages in the server logs
-3. Consult the FastAPI, ChromaDB, or LangChain documentation for specific component issues
+3. Consult the FastAPI or ChromaDB documentation for specific component issues
 
 ## System Architecture
 
@@ -192,5 +192,6 @@ RAGU consists of several key components:
    - Ollama for local or remote models
    - Anthropic for Claude models
    - OpenAI for GPT models
+5. **Web Interface**: HTML/JS frontend with drag-drop upload and conversational UI
 
 Understanding this architecture can help you customize and extend the system for your specific needs.

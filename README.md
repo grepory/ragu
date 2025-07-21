@@ -1,6 +1,6 @@
 # RAGU: Retrieval-Augmented Generation Utility
 
-RAGU is a complete RAG (Retrieval-Augmented Generation) management and interrogation system built with FastAPI, ChromaDB, and LangChain. It provides a powerful API for document management, vector storage, and LLM-powered chat functionality.
+RAGU is a complete RAG (Retrieval-Augmented Generation) management and interrogation system built with FastAPI and ChromaDB. It provides a powerful API for document management, vector storage, and LLM-powered chat functionality with support for multiple LLM providers.
 
 ## Features
 
