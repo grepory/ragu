@@ -146,12 +146,16 @@ async def generate_title_from_messages(messages: List[ChatMessage], model: Optio
         first_message = first_message[:100] + "..."
     
     # Create a prompt for title generation
-    prompt = f"""Generate a short, concise title (maximum 6 words) for a conversation that starts with this message:
+    prompt = f"""Generate a short sentence title (5-10 words maximum) for a conversation that starts with this message:
 
 User message: "{first_message}"
 
-The title should be descriptive and capture the main topic or intent of the message.
-Respond with just the title, nothing else."""
+The title should be a natural, conversational sentence that captures what the user wants to know or do. Use sentence case and avoid quotation marks. Examples:
+- "How do I set up my development environment"
+- "What are the best practices for testing"
+- "Help me troubleshoot this error message"
+
+Respond with just the title sentence, nothing else."""
     
     try:
         # Get LLM
