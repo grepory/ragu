@@ -192,6 +192,6 @@ RAGU consists of several key components:
    - Ollama for local or remote models
    - Anthropic for Claude models
    - OpenAI for GPT models
-5. **Web Interface**: HTML/JS frontend with drag-drop upload and conversational UI
+5. **Web Interface**: HTML/JS frontend with file upload and conversational UI
 
 Understanding this architecture can help you customize and extend the system for your specific needs.

@@ -277,7 +277,7 @@ RAGU provides a web interface that allows you to interact with the system throug
 
 ### Document Upload
 
-- Drag and drop PDF files to upload
+- Upload files using the upload button
 - Add tags to organize your documents
 - View upload progress and status
 
