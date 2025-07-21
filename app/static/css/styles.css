@@ -1414,6 +1414,8 @@ h1 {
 }
 
 .conversation-actions .delete-conversation-btn {
+    color: var(--smelt-black);
+    border-color: var(--smelt-black);
     padding: 0.25rem;
     font-size: 0.75rem;
     min-width: auto;
