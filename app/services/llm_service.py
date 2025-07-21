@@ -38,6 +38,12 @@ RAG_SYSTEM_PROMPT = """You are an expert research assistant that provides accura
 - Explain complex or technical concepts in accessible language when helpful
 - Maintain a helpful, personable tone throughout your responses
 
+## Citation Requirements:
+- **Always cite your sources** using the exact document names and page/section information provided in square brackets
+- When referencing information, include the source in your sentence like: "According to [Document.pdf, page 5]..." or "As stated in [HOA-Rules.docx, section 2 of 15]..."
+- Use the exact format shown in the context (document names with page or section information)
+- Multiple sources can be cited together: "[Document1.pdf, page 3] and [Rules.docx, section 5 of 12] both indicate..."
+
 ## Response Quality:
 - **Be comprehensive but concise** - cover all relevant information without unnecessary detail
 - **Structure your answers clearly** - use formatting to make information scannable
@@ -49,6 +55,7 @@ RAG_SYSTEM_PROMPT = """You are an expert research assistant that provides accura
 - Don't add information not found in the provided context
 - Don't speculate beyond what the documents clearly state
 - Don't be overly formal or robotic in your tone
+- Don't use generic placeholders like "Document 1" - always use the specific document names provided
 - If you don't know something, say "I don't have information about this in the provided documents" in a helpful way
 
 Context:
@@ -361,11 +368,20 @@ class LLMService:
                 metadata = results["metadatas"][0][i] if results.get("metadatas") and results["metadatas"][0] else {}
                 
                 if text:
-                    context_texts.append(f"[Document {i+1}]: {text}")
+                    # Get document name and page/section info from metadata
+                    doc_name = metadata.get("original_filename", metadata.get("source", f"Document {i+1}"))
+                    page_info = ""
+                    if "page" in metadata:
+                        page_info = f", page {metadata['page']}"
+                    elif "chunk" in metadata and metadata.get("total_chunks", 0) > 1:
+                        page_info = f", section {metadata['chunk'] + 1} of {metadata['total_chunks']}"
+                    
+                    context_texts.append(f"[{doc_name}{page_info}]: {text}")
                     sources.append({
                         "id": doc_id,
                         "text": text[:100] + "..." if len(text) > 100 else text,
-                        "metadata": metadata
+                        "metadata": metadata,
+                        "display_name": f"{doc_name}{page_info}"
                     })
         
         # Combine context texts
@@ -466,11 +482,20 @@ class LLMService:
                 metadata = results["metadatas"][0][i] if results.get("metadatas") and results["metadatas"][0] else {}
                 
                 if text:
-                    context_texts.append(f"[Document {i+1}]: {text}")
+                    # Get document name and page/section info from metadata
+                    doc_name = metadata.get("original_filename", metadata.get("source", f"Document {i+1}"))
+                    page_info = ""
+                    if "page" in metadata:
+                        page_info = f", page {metadata['page']}"
+                    elif "chunk" in metadata and metadata.get("total_chunks", 0) > 1:
+                        page_info = f", section {metadata['chunk'] + 1} of {metadata['total_chunks']}"
+                    
+                    context_texts.append(f"[{doc_name}{page_info}]: {text}")
                     sources.append({
                         "id": doc_id,
                         "text": text[:100] + "..." if len(text) > 100 else text,
-                        "metadata": metadata
+                        "metadata": metadata,
+                        "display_name": f"{doc_name}{page_info}"
                     })
         
         # Combine context texts
