@@ -257,6 +257,7 @@
     border: 1px solid rgba(73, 65, 53, 0.2);
     border-radius: 0.5rem;
     padding: 1rem;
+    margin-bottom: 1rem;
 }
 
 .tag-filter-header {
@@ -843,7 +844,7 @@
     border-radius: 0.5rem;
     padding: 1rem;
     margin-top: 1rem;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.0rem;
 }
 
 .search-header h6 {
