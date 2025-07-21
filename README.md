@@ -457,35 +457,6 @@ if __name__ == "__main__":
     asyncio.run(conversation_example())
 ```
 
-## Project Structure
-
-```
-ragu/
-├── app/
-│   ├── api/
-│   │   ├── routes/
-│   │   │   ├── chat.py
-│   │   │   ├── collections.py
-│   │   │   └── documents.py
-│   │   └── api.py
-│   ├── core/
-│   │   └── config.py
-│   ├── db/
-│   │   └── chroma_client.py
-│   ├── models/
-│   │   └── schemas.py
-│   ├── services/
-│   │   └── llm_service.py
-│   ├── utils/
-│   │   └── document_processor.py
-│   └── main.py
-├── chroma_db/
-├── .env
-├── .gitignore
-├── README.md
-└── requirements.txt
-```
-
 ## License
 
 MIT
