@@ -2362,6 +2362,115 @@ main {
     transform: translateY(-5px);
 }
 
+/* Style tag dropdown button to match model selection */
+.tag-selection-inline .btn.btn-outline-secondary {
+    background-color: var(--oxford-stone) !important;
+    border: 1px solid rgba(73, 65, 53, 0.4) !important;
+    color: var(--salon-drab) !important;
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 0.375rem 0.75rem;
+}
+
+.tag-selection-inline .btn.btn-outline-secondary:hover,
+.tag-selection-inline .btn.btn-outline-secondary:focus {
+    background-color: var(--joas-white) !important;
+    border-color: var(--salon-drab) !important;
+    color: var(--salon-drab) !important;
+    box-shadow: 0 0 0 0.125rem rgba(73, 65, 53, 0.15);
+}
+
+.tag-selection-inline .btn.btn-outline-secondary:active,
+.tag-selection-inline .btn.btn-outline-secondary.show {
+    background-color: var(--joas-white) !important;
+    border-color: var(--salon-drab) !important;
+    color: var(--salon-drab) !important;
+}
+
+/* Style dropdown menu with RAGU theme */
+.tag-selection-inline .dropdown-menu {
+    background-color: var(--salon-drab);
+    border: 1px solid rgba(196, 180, 157, 0.3);
+    color: var(--joas-white);
+    font-size: 0.875rem;
+}
+
+/* Search input styling */
+.tag-selection-inline .form-control {
+    background-color: rgba(218, 203, 180, 0.1);
+    border: 1px solid rgba(218, 203, 180, 0.3);
+    color: var(--joas-white);
+    font-size: 0.875rem;
+}
+
+.tag-selection-inline .form-control:focus {
+    background-color: rgba(218, 203, 180, 0.15);
+    border-color: var(--joas-white);
+    color: var(--joas-white);
+    box-shadow: 0 0 0 0.125rem rgba(218, 203, 180, 0.25);
+}
+
+.tag-selection-inline .form-control::placeholder {
+    color: rgba(218, 203, 180, 0.7);
+}
+
+/* Checkbox styling */
+.tag-selection-inline .form-check-input {
+    background-color: rgba(218, 203, 180, 0.1);
+    border-color: rgba(218, 203, 180, 0.5);
+}
+
+.tag-selection-inline .form-check-input:checked {
+    background-color: var(--oxford-stone);
+    border-color: var(--oxford-stone);
+}
+
+.tag-selection-inline .form-check-label {
+    color: var(--joas-white);
+    font-size: 0.875rem;
+}
+
+/* Selected tags as badges */
+.tag-selection-inline .badge {
+    background-color: var(--oxford-stone) !important;
+    color: var(--smelt-black);
+    font-weight: 500;
+    font-size: 0.75rem;
+}
+
+.tag-selection-inline .badge:hover {
+    background-color: rgba(196, 180, 157, 0.8) !important;
+}
+
+/* Available tag buttons */
+.tag-selection-inline .btn-outline-secondary {
+    background-color: rgba(218, 203, 180, 0.1);
+    border-color: rgba(218, 203, 180, 0.3);
+    color: var(--joas-white);
+    font-size: 0.75rem;
+    font-weight: 400;
+}
+
+.tag-selection-inline .btn-outline-secondary:hover {
+    background-color: var(--oxford-stone);
+    border-color: var(--oxford-stone);
+    color: var(--smelt-black);
+}
+
+/* Section headers */
+.tag-selection-inline .small.text-muted {
+    color: rgba(218, 203, 180, 0.7) !important;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.5px;
+}
+
+/* Dividers */
+.tag-selection-inline .dropdown-divider {
+    border-color: rgba(218, 203, 180, 0.2);
+}
+
 .selected-tag-item,
 .available-tag-item {
     display: flex;

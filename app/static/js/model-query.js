@@ -296,7 +296,9 @@ const ModelQueryComponent = {
         
         // Handle click outside to close dropdown
         const handleClickOutside = (event) => {
-            const dropdown = document.querySelector('.tag-selector-dropdown');
+            if (!tagDropdownOpen.value) return;
+            
+            const dropdown = document.querySelector('.tag-selection-inline');
             if (dropdown && !dropdown.contains(event.target)) {
                 tagDropdownOpen.value = false;
             }
@@ -443,9 +445,11 @@ const ModelQueryComponent = {
         const handleTagDropdownBlur = (event) => {
             // Small delay to allow clicks inside dropdown to register
             setTimeout(() => {
+                if (!tagDropdownOpen.value) return;
+                
                 // Check if focus moved to an element outside the dropdown
                 const activeElement = document.activeElement;
-                const dropdownContainer = event.currentTarget.closest('.tag-selector-dropdown');
+                const dropdownContainer = event.currentTarget.closest('.tag-selection-inline');
                 
                 if (!dropdownContainer || !dropdownContainer.contains(activeElement)) {
                     tagDropdownOpen.value = false;
