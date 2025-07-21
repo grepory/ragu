@@ -8,6 +8,27 @@
 
 /* Custom styles for RAGU front-end */
 
+/* Simple model selection above chat input */
+.model-selection-simple {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.model-selection-simple select {
+    background-color: var(--joas-white);
+    border: 1px solid rgba(73, 65, 53, 0.2);
+    border-radius: 0.375rem;
+    color: var(--salon-drab);
+    font-size: 0.875rem;
+    padding: 0.375rem 0.75rem;
+}
+
+.model-selection-simple select:focus {
+    border-color: var(--salon-drab);
+    box-shadow: 0 0 0 0.125rem rgba(73, 65, 53, 0.15);
+}
+
 /* Tag selection styles - Themed for RAGU */
 .tag-dropdown {
     flex: 2;
@@ -1297,6 +1318,7 @@ h1 {
 
 .dropdown-item.active {
     background-color: var(--oxford-stone);
+    color: var(--smelt-black)
 }
 
 .dropdown-item i {
@@ -2024,6 +2046,7 @@ main {
 .dropdown-item {
     flex: 1;
     background-color: var(--oxford-stone);
+    color: var(--smelt-black);
     display: flex;
     align-items: center;
 }

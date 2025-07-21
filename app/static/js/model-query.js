@@ -148,34 +148,28 @@ const ModelQueryComponent = {
                         </div>
                     </div>
                     
-                    <!-- Model selection -->
-                    <div class="dropdown-item model-dropdown">
-                        <label for="model-select" class="form-label small-label">
-                            <i class="bi bi-cpu me-1"></i> Model
-                        </label>
-                        <select 
-                            id="model-select"
-                            class="form-select form-select-sm"
-                            v-model="selectedModel"
-                        >
-                            <option value="">Default Model</option>
-                            <optgroup label="Ollama Models">
-                                <option v-for="model in models.filter(m => m.value.startsWith('ollama'))" :key="model.value" :value="model.value">
-                                    {{ model.label }}
-                                </option>
-                            </optgroup>
-                            <optgroup label="Anthropic Models">
-                                <option v-for="model in models.filter(m => m.value.startsWith('anthropic'))" :key="model.value" :value="model.value">
-                                    {{ model.label }}
-                                </option>
-                            </optgroup>
-                            <optgroup label="OpenAI Models">
-                                <option v-for="model in models.filter(m => m.value.startsWith('openai'))" :key="model.value" :value="model.value">
-                                    {{ model.label }}
-                                </option>
-                            </optgroup>
-                        </select>
-                    </div>
+                </div>
+                
+                <!-- Simple model selection above query input -->
+                <div class="model-selection-simple mb-2">
+                    <select id="model-select" class="form-select form-select-sm" v-model="selectedModel" style="max-width: 250px;">
+                        <option value="">Default Model</option>
+                        <optgroup label="Ollama Models">
+                            <option v-for="model in models.filter(m => m.value.startsWith('ollama'))" :key="model.value" :value="model.value">
+                                {{ model.label }}
+                            </option>
+                        </optgroup>
+                        <optgroup label="Anthropic Models">
+                            <option v-for="model in models.filter(m => m.value.startsWith('anthropic'))" :key="model.value" :value="model.value">
+                                {{ model.label }}
+                            </option>
+                        </optgroup>
+                        <optgroup label="OpenAI Models">
+                            <option v-for="model in models.filter(m => m.value.startsWith('openai'))" :key="model.value" :value="model.value">
+                                {{ model.label }}
+                            </option>
+                        </optgroup>
+                    </select>
                 </div>
                 
                 <!-- Query input -->

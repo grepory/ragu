@@ -137,7 +137,7 @@ async def generate_title_from_messages(messages: List[ChatMessage], model: Optio
     # Extract the first user message
     user_messages = [msg for msg in messages if msg.role == "user"]
     if not user_messages:
-        return "New Conversation"
+        return "New conversation"
     
     first_message = user_messages[0].content
     
