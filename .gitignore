@@ -3,10 +3,4 @@
 __pycache__
 chroma_db
 .claude
-
-# Playwright
-node_modules/
-/test-results/
-/playwright-report/
-/blob-report/
-/playwright/.cache/
+app.log
