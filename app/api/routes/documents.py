@@ -16,6 +16,7 @@ from app.models.schemas import (
 from app.db.chroma_client import chroma_client
 from app.utils.document_processor import document_processor
 from app.services.llm_service import llm_service
+from app.core.config import settings
 
 router = APIRouter()
 
@@ -58,15 +59,32 @@ async def upload_document(
         if tags:
             tag_list = [tag.strip() for tag in tags.split(',') if tag.strip()]
         
+        # Check file size before reading (FastAPI provides size in bytes)
+        if hasattr(file, 'size') and file.size:
+            file_size_mb = file.size / (1024 * 1024)
+            if file_size_mb > settings.MAX_FILE_SIZE_MB:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"File '{file.filename}' is {file_size_mb:.1f}MB, which exceeds the maximum allowed size of {settings.MAX_FILE_SIZE_MB}MB."
+                )
+        
         # Read file content
         file_content = await file.read()
+        
+        # Double-check file size after reading
+        file_size_mb = len(file_content) / (1024 * 1024)
+        if file_size_mb > settings.MAX_FILE_SIZE_MB:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File '{file.filename}' is {file_size_mb:.1f}MB, which exceeds the maximum allowed size of {settings.MAX_FILE_SIZE_MB}MB."
+            )
         
         # Save file to temporary location
         temp_file_path = document_processor.save_uploaded_file(file_content, file.filename)
         
         try:
             # Process the document
-            texts, metadatas, ids = document_processor.process_file(temp_file_path, file.filename)
+            texts, metadatas, ids = await document_processor.process_file(temp_file_path, file.filename)
             
             # Check if any chunks were generated
             if not texts or not ids:
@@ -451,6 +469,181 @@ async def debug_collection(collection_name: str):
         return {"error": str(e)}
 
 
+@router.get("/search")
+async def search_documents(
+    q: str = Query(..., description="Search query"),
+    limit: int = Query(20, ge=1, le=100, description="Maximum number of results"),
+    tags: Optional[List[str]] = Query(None, description="Filter by tags")
+):
+    """Search documents by name and content.
+    
+    Args:
+        q: Search query
+        limit: Maximum number of results to return
+        tags: Optional tags to filter results by
+        
+    Returns:
+        Search results with relevance scores
+    """
+    try:
+        if not q or not q.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Search query cannot be empty"
+            )
+        
+        query = q.strip()
+        results = []
+        
+        # Get all documents from main collection
+        all_docs = chroma_client.get_collection_documents(
+            chroma_client.DOCUMENTS_COLLECTION, 
+            limit=None  # Get all documents for comprehensive search
+        )
+        
+        if not all_docs or not all_docs.get("ids"):
+            return {
+                "query": query,
+                "results": [],
+                "total": 0
+            }
+        
+        # Group documents by source for better results
+        documents_by_source = {}
+        for i, doc_id in enumerate(all_docs["ids"]):
+            metadata = all_docs["metadatas"][i] if all_docs.get("metadatas") else {}
+            document_text = all_docs["documents"][i] if all_docs.get("documents") else ""
+            
+            source = metadata.get("source", "unknown")
+            
+            # Apply tag filtering if specified
+            if tags:
+                doc_tags_str = metadata.get("tags", "")
+                doc_tags = [tag.strip() for tag in doc_tags_str.split(",") if tag.strip()] if doc_tags_str else []
+                # Skip if document doesn't have any of the required tags
+                if not any(tag in doc_tags for tag in tags):
+                    continue
+            
+            if source not in documents_by_source:
+                documents_by_source[source] = {
+                    "source": source,
+                    "chunks": [],
+                    "metadata": metadata,
+                    "tags": [tag.strip() for tag in metadata.get("tags", "").split(",") if tag.strip()] if metadata.get("tags") else []
+                }
+            
+            documents_by_source[source]["chunks"].append({
+                "id": doc_id,
+                "text": document_text,
+                "chunk": metadata.get("chunk", 0)
+            })
+        
+        # Perform both filename and content searches
+        # Name-based search (fast string matching)
+        query_lower = query.lower()
+        for source, doc_info in documents_by_source.items():
+            if query_lower in source.lower():
+                # Calculate relevance score based on how well the query matches
+                if source.lower() == query_lower:
+                    score = 1.0  # Exact match
+                elif source.lower().startswith(query_lower):
+                    score = 0.9  # Starts with query
+                else:
+                    score = 0.7  # Contains query
+                
+                results.append({
+                    "source": source,
+                    "match_type": "filename",
+                    "score": score,
+                    "total_chunks": len(doc_info["chunks"]),
+                    "tags": doc_info["tags"],
+                    "metadata": doc_info["metadata"],
+                    "preview": f"Filename match: {source}",
+                    "matched_chunk": None
+                })
+        
+        # Content-based semantic search
+        try:
+            semantic_results = chroma_client.query_collection(
+                collection_name=chroma_client.DOCUMENTS_COLLECTION,
+                query_text=query,
+                n_results=min(limit * 2, 50)  # Get more results for better filtering
+            )
+            
+            if semantic_results and semantic_results.get("ids") and semantic_results.get("ids")[0]:
+                # Group semantic results by source
+                source_best_matches = {}
+                
+                for i, doc_id in enumerate(semantic_results["ids"][0]):
+                    metadata = semantic_results["metadatas"][0][i] if semantic_results.get("metadatas") else {}
+                    document_text = semantic_results["documents"][0][i] if semantic_results.get("documents") else ""
+                    distance = semantic_results["distances"][0][i] if semantic_results.get("distances") else 0
+                    
+                    source = metadata.get("source", "unknown")
+                    
+                    # Apply tag filtering
+                    if tags:
+                        doc_tags_str = metadata.get("tags", "")
+                        doc_tags = [tag.strip() for tag in doc_tags_str.split(",") if tag.strip()] if doc_tags_str else []
+                        if not any(tag in doc_tags for tag in tags):
+                            continue
+                    
+                    # Convert distance to similarity score (lower distance = higher similarity)
+                    score = max(0, 1.0 - distance)
+                    
+                    # Only keep the best match per source document
+                    if source not in source_best_matches or score > source_best_matches[source]["score"]:
+                        # Create preview text highlighting the match
+                        preview = document_text[:200] + "..." if len(document_text) > 200 else document_text
+                        
+                        source_best_matches[source] = {
+                            "source": source,
+                            "match_type": "content",
+                            "score": score * 0.95,  # Slightly lower priority than exact filename matches
+                            "total_chunks": len(documents_by_source.get(source, {}).get("chunks", [])),
+                            "tags": [tag.strip() for tag in metadata.get("tags", "").split(",") if tag.strip()] if metadata.get("tags") else [],
+                            "metadata": metadata,
+                            "preview": preview,
+                            "matched_chunk": {
+                                "id": doc_id,
+                                "text": document_text,
+                                "chunk": metadata.get("chunk", 0)
+                            }
+                        }
+                
+                results.extend(source_best_matches.values())
+                    
+        except Exception as e:
+            print(f"Error in semantic search: {e}")
+            # Continue with name-only results if semantic search fails
+        
+        # Remove duplicates (prioritize higher scores) and sort by relevance
+        unique_results = {}
+        for result in results:
+            source = result["source"]
+            if source not in unique_results or result["score"] > unique_results[source]["score"]:
+                unique_results[source] = result
+        
+        final_results = sorted(unique_results.values(), key=lambda x: x["score"], reverse=True)
+        
+        # Limit results
+        final_results = final_results[:limit]
+        
+        return {
+            "query": query,
+            "results": final_results,
+            "total": len(final_results)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to search documents: {str(e)}"
+        )
+
+
 @router.get("/{collection_name}", response_model=DocumentList)
 async def list_collection_documents(
     collection_name: str,
@@ -700,3 +893,5 @@ async def suggest_tags_for_source(
             status_code=500,
             detail=f"Failed to generate tag suggestions: {str(e)}"
         )
+
+

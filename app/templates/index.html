@@ -118,6 +118,30 @@
                                 </div>
                             </div>
                             
+                            <!-- Document Search Section -->
+                            <div class="document-search-section">
+                                <div class="search-header">
+                                    <h6><i class="bi bi-search me-2"></i>Search Documents</h6>
+                                </div>
+                                <div class="search-controls">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="document-search-input" 
+                                               placeholder="Search documents...">
+                                        <button class="btn btn-outline-primary" id="search-btn">
+                                            <i class="bi bi-search"></i>
+                                        </button>
+                                        <button class="btn btn-outline-secondary" id="clear-search-btn" style="display: none;">
+                                            <i class="bi bi-x-circle"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="search-results-info" class="search-results-info" style="display: none;">
+                                    <small class="text-muted">
+                                        <span id="search-results-count">0</span> results for "<span id="search-query-display"></span>"
+                                    </small>
+                                </div>
+                            </div>
+                            
                             <!-- Upload Progress Area -->
                             <div id="upload-progress-area" class="upload-progress-area" style="display: none;">
                                 <div class="upload-progress-header">
@@ -409,6 +433,191 @@
                 }
             }
             
+            // Global search state
+            let currentSearchQuery = '';
+            let searchResults = [];
+            let isSearchActive = false;
+            
+            // Search documents function
+            async function searchDocuments(query) {
+                const documentsList = document.getElementById('documents-list');
+                const noDocumentsMessage = document.getElementById('no-documents-message');
+                const searchResultsInfo = document.getElementById('search-results-info');
+                const searchResultsCount = document.getElementById('search-results-count');
+                const searchQueryDisplay = document.getElementById('search-query-display');
+                
+                if (!query || !query.trim()) {
+                    // If query is empty, show all documents
+                    isSearchActive = false;
+                    searchResultsInfo.style.display = 'none';
+                    await loadDocumentsList();
+                    return;
+                }
+                
+                // Show loading
+                documentsList.innerHTML = '<div class="text-center p-4"><div class="spinner-border" role="status"></div><p class="mt-2">Searching...</p></div>';
+                noDocumentsMessage.style.display = 'none';
+                
+                try {
+                    // Get selected tag filters to include in search
+                    const selectedTags = Array.from(document.querySelectorAll('.tag-filter-checkbox:checked'))
+                        .map(cb => cb.id.replace('filter-', ''));
+                    
+                    // Build search URL
+                    const searchParams = new URLSearchParams({
+                        q: query.trim(),
+                        limit: '50'
+                    });
+                    
+                    // Add tag filters if any are selected
+                    selectedTags.forEach(tag => {
+                        searchParams.append('tags', tag);
+                    });
+                    
+                    const response = await fetch(`/api/v1/documents/search?${searchParams}`);
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        searchResults = data.results || [];
+                        
+                        // Update search state
+                        currentSearchQuery = query;
+                        isSearchActive = true;
+                        
+                        // Update search results info
+                        searchResultsCount.textContent = searchResults.length;
+                        searchQueryDisplay.textContent = query;
+                        searchResultsInfo.style.display = 'block';
+                        
+                        if (searchResults.length === 0) {
+                            documentsList.innerHTML = `
+                                <div class="text-center p-4 text-muted">
+                                    <i class="bi bi-search fs-1"></i>
+                                    <p class="mt-2">No documents found for "${query}"</p>
+                                    <small>Try different keywords or search type</small>
+                                </div>
+                            `;
+                        } else {
+                            displaySearchResults(searchResults);
+                        }
+                        
+                    } else {
+                        const errorData = await response.json();
+                        documentsList.innerHTML = `
+                            <div class="text-danger text-center p-4">
+                                Search failed: ${errorData.detail || 'Unknown error'}
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    console.error('Error searching documents:', error);
+                    documentsList.innerHTML = '<div class="text-danger text-center p-4">Error performing search</div>';
+                }
+            }
+            
+            // Display search results with highlighting and match info
+            function displaySearchResults(results) {
+                const documentsList = document.getElementById('documents-list');
+                
+                documentsList.innerHTML = results.map(result => {
+                    // Clean up the filename display
+                    let displayName = result.source;
+                    
+                    // If it looks like a temp file path, extract just the filename
+                    if (displayName.includes('/')) {
+                        displayName = displayName.split('/').pop();
+                    }
+                    
+                    // Highlight search terms in the filename if it's a name match
+                    if (result.match_type === 'filename') {
+                        const regex = new RegExp(`(${escapeRegex(currentSearchQuery)})`, 'gi');
+                        displayName = displayName.replace(regex, '<span class="search-highlight">$1</span>');
+                    }
+                    
+                    // Format the preview text
+                    let previewText = result.preview || '';
+                    if (result.match_type === 'content' && previewText) {
+                        // Try to highlight search terms in content preview
+                        const regex = new RegExp(`(${escapeRegex(currentSearchQuery)})`, 'gi');
+                        previewText = previewText.replace(regex, '<span class="search-highlight">$1</span>');
+                    }
+                    
+                    return `
+                        <div class="document-item search-result" data-source="${result.source}" data-tags='${JSON.stringify(result.tags)}'>
+                            <div class="document-content">
+                                <div class="document-name">
+                                    <i class="bi bi-file-earmark-text me-2"></i>${displayName}
+                                </div>
+                                <div class="document-info">
+                                    ${result.total_chunks} chunks • Score: ${Math.round(result.score * 100)}%
+                                </div>
+                                ${previewText ? `<div class="search-preview">${previewText}</div>` : ''}
+                                ${result.tags && result.tags.length > 0 ? `
+                                    <div class="document-tags">
+                                        ${result.tags.map(tag => `<span class="document-tag" title="${tag}">${tag}</span>`).join('')}
+                                    </div>
+                                ` : ''}
+                            </div>
+                            <div class="document-actions">
+                                <button class="btn btn-outline-success btn-sm edit-tags-btn" 
+                                        data-source="${result.source}" title="Edit tags">
+                                    <i class="bi bi-tags"></i>
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm delete-document-btn" 
+                                        data-source="${result.source}" title="Delete document">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+                // Add event listeners to action buttons
+                setupDocumentActionListeners();
+            }
+            
+            // Setup event listeners for document action buttons
+            function setupDocumentActionListeners() {
+                // Add click event listeners to edit and delete buttons
+                document.querySelectorAll('.edit-tags-btn').forEach(button => {
+                    button.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const source = this.getAttribute('data-source');
+                        toggleTagEdit(source);
+                    });
+                });
+                
+                document.querySelectorAll('.delete-document-btn').forEach(button => {
+                    button.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const source = this.getAttribute('data-source');
+                        deleteDocument(source);
+                    });
+                });
+            }
+            
+            // Helper function to escape regex special characters
+            function escapeRegex(string) {
+                return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            }
+            
+            // Clear search and show all documents
+            async function clearSearch() {
+                currentSearchQuery = '';
+                isSearchActive = false;
+                searchResults = [];
+                
+                // Clear search input
+                document.getElementById('document-search-input').value = '';
+                
+                // Hide search info
+                document.getElementById('search-results-info').style.display = 'none';
+                document.getElementById('clear-search-btn').style.display = 'none';
+                
+                // Load all documents
+                await loadDocumentsList();
+            }
+            
             // Display documents in the UI
             function displayDocuments(documents) {
                 const documentsList = document.getElementById('documents-list');
@@ -615,7 +824,7 @@
                         html += `
                             <div class="tag-filter-item" data-tag="${tag}">
                                 <input type="checkbox" id="filter-${tag}" class="tag-filter-checkbox">
-                                <label for="filter-${tag}">${tag} (${allTagCounts[tag] || 0})</label>
+                                <label for="filter-${tag}" title="${allTagCounts[tag] || 0} document(s) with this tag">${tag} (${allTagCounts[tag] || 0})</label>
                             </div>
                         `;
                     });
@@ -631,7 +840,7 @@
                         html += `
                             <div class="tag-filter-item" data-tag="${tag}">
                                 <input type="checkbox" id="filter-${tag}" class="tag-filter-checkbox">
-                                <label for="filter-${tag}">${tag} (${allTagCounts[tag] || 0})</label>
+                                <label for="filter-${tag}" title="${allTagCounts[tag] || 0} document(s) with this tag">${tag} (${allTagCounts[tag] || 0})</label>
                             </div>
                         `;
                     });
@@ -870,7 +1079,7 @@
                     const count = allTagCounts[tag] || 0;
                     
                     html += `
-                        <div class="tag-autocomplete-item" data-tag="${tag}">
+                        <div class="tag-autocomplete-item" data-tag="${tag}" title="${count} document(s) with this tag">
                             ${highlightedTag} <small class="tag-count">(${count})</small>
                         </div>
                     `;
@@ -1150,9 +1359,18 @@
                                     <span class="status-text text-success">Uploaded</span>
                                 `;
                             } else {
+                                let errorMessage = 'Failed';
+                                if (response.status === 413) {
+                                    errorMessage = 'File too large';
+                                } else if (result.detail && result.detail.includes('timed out')) {
+                                    errorMessage = 'Processing timeout';
+                                } else if (result.detail && result.detail.includes('exceeds the maximum')) {
+                                    errorMessage = 'File too large';
+                                }
+                                
                                 statusElement.innerHTML = `
                                     <i class="bi bi-x-circle text-danger"></i>
-                                    <span class="status-text text-danger">Failed</span>
+                                    <span class="status-text text-danger">${errorMessage}</span>
                                 `;
                             }
                             
@@ -1521,6 +1739,47 @@
                 });
             }
             
+            // Document search functionality
+            const searchInput = document.getElementById('document-search-input');
+            const searchBtn = document.getElementById('search-btn');
+            const clearSearchBtn = document.getElementById('clear-search-btn');
+            
+            if (searchInput && searchBtn && clearSearchBtn) {
+                // Search button click
+                searchBtn.addEventListener('click', function() {
+                    const query = searchInput.value.trim();
+                    
+                    if (query) {
+                        searchDocuments(query);  // Always search both filename and content
+                        clearSearchBtn.style.display = 'inline-block';
+                    }
+                });
+                
+                // Enter key in search input
+                searchInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        searchBtn.click();
+                    }
+                });
+                
+                // Input change to show/hide clear button
+                searchInput.addEventListener('input', function() {
+                    const hasQuery = this.value.trim().length > 0;
+                    clearSearchBtn.style.display = hasQuery ? 'inline-block' : 'none';
+                    
+                    // If input is cleared, clear search automatically
+                    if (!hasQuery && isSearchActive) {
+                        clearSearch();
+                    }
+                });
+                
+                // Clear search button
+                clearSearchBtn.addEventListener('click', function() {
+                    clearSearch();
+                });
+            }
+            
             // Upload files to the main collection
             async function uploadFiles(files) {
                 console.log(`Uploading ${files.length} files to documents collection`);
@@ -1585,9 +1844,18 @@
                                     showTagSuggestion: true  // TODO: Set to false to disable modal for now
                                 });
                             } else {
+                                let errorMessage = 'Failed';
+                                if (response.status === 413) {
+                                    errorMessage = 'File too large';
+                                } else if (result.detail && result.detail.includes('timed out')) {
+                                    errorMessage = 'Processing timeout';
+                                } else if (result.detail && result.detail.includes('exceeds the maximum')) {
+                                    errorMessage = 'File too large';
+                                }
+                                
                                 statusElement.innerHTML = `
                                     <i class="bi bi-x-circle text-danger"></i>
-                                    <span class="status-text text-danger">Failed</span>
+                                    <span class="status-text text-danger">${errorMessage}</span>
                                 `;
                                 
                                 results.push({
