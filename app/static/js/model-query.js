@@ -49,127 +49,127 @@ const ModelQueryComponent = {
             
             <!-- Input area fixed at bottom -->
             <div class="chat-input-area">
-                <!-- Small dropdowns for model and tag selection -->
-                <div class="dropdowns-container">
+                <!-- Inline selection controls above query input -->
+                <div class="selection-controls mb-2 d-flex gap-2 align-items-center">
+                    <!-- Model selection -->
+                    <div class="model-selection-inline">
+                        <select id="model-select" class="form-select form-select-sm" v-model="selectedModel" style="min-width: 180px;">
+                            <option value="">Default Model</option>
+                            <optgroup label="Ollama Models">
+                                <option v-for="model in models.filter(m => m.value.startsWith('ollama'))" :key="model.value" :value="model.value">
+                                    {{ model.label }}
+                                </option>
+                            </optgroup>
+                            <optgroup label="Anthropic Models">
+                                <option v-for="model in models.filter(m => m.value.startsWith('anthropic'))" :key="model.value" :value="model.value">
+                                    {{ model.label }}
+                                </option>
+                            </optgroup>
+                            <optgroup label="OpenAI Models">
+                                <option v-for="model in models.filter(m => m.value.startsWith('openai'))" :key="model.value" :value="model.value">
+                                    {{ model.label }}
+                                </option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    
                     <!-- Tag selection -->
-                    <div class="dropdown-item tag-dropdown">
-                        <label class="form-label small-label">
-                            <i class="bi bi-tags me-1"></i> Tags
-                        </label>
-                        
-                        <!-- Tag Selection Dropdown -->
-                        <div class="tag-selector-dropdown" :class="{ 'is-open': tagDropdownOpen }">
-                            <!-- Dropdown Toggle Button -->
+                    <div class="tag-selection-inline">
+                        <div class="dropdown" :class="{ show: tagDropdownOpen }">
                             <button 
                                 type="button" 
-                                class="tag-selector-button"
+                                class="btn btn-outline-secondary btn-sm dropdown-toggle"
                                 @click="toggleTagDropdown"
+                                style="min-width: 120px;"
                             >
-                                <span v-if="selectedTags.length === 0" class="placeholder-text">Select tags...</span>
-                                <span v-else class="selected-count">{{ selectedTags.length }} tag{{ selectedTags.length !== 1 ? 's' : '' }} selected</span>
-                                <i class="bi bi-chevron-down dropdown-arrow" :class="{ 'rotated': tagDropdownOpen }"></i>
+                                <i class="bi bi-tags me-1"></i>
+                                <span v-if="selectedTags.length === 0">All docs</span>
+                                <span v-else>{{ selectedTags.length }} tag{{ selectedTags.length !== 1 ? 's' : '' }}</span>
                             </button>
                             
-                            <!-- Dropdown Content -->
-                            <div v-if="tagDropdownOpen" class="tag-dropdown-content">
+                            <!-- Dropdown menu -->
+                            <div v-if="tagDropdownOpen" class="dropdown-menu show" style="min-width: 300px;">
                                 <!-- Search Input -->
-                                <div class="tag-search-section">
+                                <div class="px-3 py-2">
                                     <input 
                                         ref="tagSearchInput"
                                         type="text" 
-                                        class="tag-search-input" 
-                                        placeholder="Type to search tags..."
+                                        class="form-control form-control-sm" 
+                                        placeholder="Search tags..."
                                         v-model="tagSearchQuery"
                                         @input="onTagSearch"
                                         @mousedown="$event.stopPropagation()"
                                     >
                                 </div>
                                 
-                                <!-- Selected Tags Display -->
-                                <div v-if="selectedTags.length > 0" class="selected-tags-section">
-                                    <div class="selected-tags-header">Selected Tags</div>
-                                    <div class="selected-tags-list">
-                                        <div 
-                                            v-for="tag in selectedTags" 
-                                            :key="'selected-' + tag" 
-                                            class="selected-tag-item"
-                                        >
-                                            <span class="tag-name">{{ tag }}</span>
-                                            <button 
-                                                type="button" 
-                                                class="remove-tag-btn"
-                                                @click="removeTag(tag)"
-                                                @mousedown="$event.stopPropagation()"
-                                            >
-                                                <i class="bi bi-x"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
+                                <div class="dropdown-divider"></div>
                                 
-                                <!-- Available Tags -->
-                                <div v-if="availableTagsForSelection.length > 0" class="available-tags-section">
-                                    <div v-if="selectedTags.length > 0" class="available-tags-header">Available Tags</div>
-                                    <div class="available-tags-list">
-                                        <div 
-                                            v-for="tagResult in availableTagsForSelection.slice(0, 10)" 
-                                            :key="'available-' + tagResult.item" 
-                                            class="available-tag-item"
-                                            @click="addTag(tagResult.item)"
-                                            @mousedown="$event.stopPropagation()"
-                                        >
-                                            <span class="tag-name">{{ tagResult.item }}</span>
-                                            <span class="tag-count">({{ tagCounts[tagResult.item] || 0 }})</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- No Results -->
-                                <div v-if="tagSearchQuery && availableTagsForSelection.length === 0" class="no-results">
-                                    No tags found matching "{{ tagSearchQuery }}"
-                                </div>
-                                
-                                <!-- Include Untagged Option -->
-                                <div class="include-untagged-section">
-                                    <label class="checkbox-label">
+                                <!-- Include untagged option -->
+                                <div class="px-3 py-1">
+                                    <div class="form-check form-check-sm">
                                         <input 
+                                            class="form-check-input" 
                                             type="checkbox" 
+                                            id="includeUntaggedCheck"
                                             v-model="includeUntagged"
                                             @mousedown="$event.stopPropagation()"
                                         >
-                                        <span>Include untagged documents</span>
-                                    </label>
+                                        <label class="form-check-label small" for="includeUntaggedCheck">
+                                            Include untagged documents
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div v-if="selectedTags.length > 0 || availableTagsForSelection.length > 0" class="dropdown-divider"></div>
+                                
+                                <!-- Selected tags -->
+                                <div v-if="selectedTags.length > 0" class="px-3 py-1">
+                                    <div class="small text-muted mb-1">Selected:</div>
+                                    <div class="d-flex flex-wrap gap-1">
+                                        <span 
+                                            v-for="tag in selectedTags" 
+                                            :key="'selected-' + tag"
+                                            class="badge bg-primary d-flex align-items-center gap-1"
+                                            style="cursor: pointer;"
+                                            @click="removeTag(tag)"
+                                            @mousedown="$event.stopPropagation()"
+                                            title="Click to remove"
+                                        >
+                                            {{ tag }}
+                                            <i class="bi bi-x"></i>
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Available tags -->
+                                <div v-if="availableTagsForSelection.length > 0" class="px-3 py-1">
+                                    <div v-if="selectedTags.length > 0" class="small text-muted mb-1">Available:</div>
+                                    <div class="tag-list" style="max-height: 200px; overflow-y: auto;">
+                                        <button
+                                            v-for="tagResult in availableTagsForSelection.slice(0, 20)" 
+                                            :key="'available-' + tagResult.item"
+                                            type="button"
+                                            class="btn btn-sm btn-outline-secondary me-1 mb-1"
+                                            @click="addTag(tagResult.item)"
+                                            @mousedown="$event.stopPropagation()"
+                                        >
+                                            {{ tagResult.item }} <small class="text-muted">({{ tagCounts[tagResult.item] || 0 }})</small>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- No tags message -->
+                                <div v-if="availableTags.length === 0" class="px-3 py-2 text-muted small">
+                                    No tags found. Upload documents with tags first.
+                                </div>
+                                
+                                <!-- No results -->
+                                <div v-if="tagSearchQuery && availableTagsForSelection.length === 0 && availableTags.length > 0" class="px-3 py-2 text-muted small">
+                                    No tags found matching "{{ tagSearchQuery }}"
                                 </div>
                             </div>
                         </div>
-                        
-                        <div class="form-text small-text" v-if="availableTags.length === 0">
-                            No tags found. Upload documents with tags first.
-                        </div>
                     </div>
-                    
-                </div>
-                
-                <!-- Simple model selection above query input -->
-                <div class="model-selection-simple mb-2">
-                    <select id="model-select" class="form-select form-select-sm" v-model="selectedModel" style="max-width: 250px;">
-                        <option value="">Default Model</option>
-                        <optgroup label="Ollama Models">
-                            <option v-for="model in models.filter(m => m.value.startsWith('ollama'))" :key="model.value" :value="model.value">
-                                {{ model.label }}
-                            </option>
-                        </optgroup>
-                        <optgroup label="Anthropic Models">
-                            <option v-for="model in models.filter(m => m.value.startsWith('anthropic'))" :key="model.value" :value="model.value">
-                                {{ model.label }}
-                            </option>
-                        </optgroup>
-                        <optgroup label="OpenAI Models">
-                            <option v-for="model in models.filter(m => m.value.startsWith('openai'))" :key="model.value" :value="model.value">
-                                {{ model.label }}
-                            </option>
-                        </optgroup>
-                    </select>
                 </div>
                 
                 <!-- Query input -->
@@ -421,19 +421,19 @@ const ModelQueryComponent = {
                         tagSearchInput.value.focus();
                     }
                     
-                    // Check if dropdown would extend beyond viewport
-                    const dropdown = document.querySelector('.tag-dropdown-content');
-                    const dropdownContainer = document.querySelector('.tag-selector-dropdown');
-                    if (dropdown && dropdownContainer) {
+                    // Check if dropdown would extend beyond viewport for inline Bootstrap dropdown
+                    const dropdownContainer = document.querySelector('.tag-selection-inline .dropdown');
+                    const dropdownMenu = document.querySelector('.tag-selection-inline .dropdown-menu');
+                    if (dropdownContainer && dropdownMenu) {
                         const rect = dropdownContainer.getBoundingClientRect();
                         const dropdownHeight = 400; // max height
                         const spaceBelow = window.innerHeight - rect.bottom;
                         const spaceAbove = rect.top;
                         
                         if (spaceBelow < dropdownHeight && spaceAbove > spaceBelow) {
-                            dropdownContainer.classList.add('dropdown-up');
+                            dropdownContainer.classList.add('dropup');
                         } else {
-                            dropdownContainer.classList.remove('dropdown-up');
+                            dropdownContainer.classList.remove('dropup');
                         }
                     }
                 });

@@ -2343,6 +2343,25 @@ main {
     scroll-behavior: smooth;
 }
 
+/* Inline tag dropdown positioning */
+.tag-selection-inline .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: auto;
+    transform: translateY(5px);
+    max-height: 400px;
+    overflow-y: auto;
+    z-index: 1050;
+}
+
+/* Force dropdown to open upward when near bottom of viewport */
+.tag-selection-inline .dropdown.dropup .dropdown-menu {
+    top: auto;
+    bottom: 100%;
+    transform: translateY(-5px);
+}
+
 .selected-tag-item,
 .available-tag-item {
     display: flex;
