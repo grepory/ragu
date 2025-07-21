@@ -37,6 +37,23 @@ const ModelQueryComponent = {
                                 <div v-else v-html="parseMarkdown(message.content)" class="markdown-content"></div>
                             </div>
                         </div>
+                        
+                        <!-- Typing indicator -->
+                        <div v-if="isLoading && conversationHistory.length > 0" class="message mb-2 p-2 rounded assistant-message">
+                            <div class="message-header mb-1">
+                                <small class="fw-bold">
+                                    <i class="bi bi-robot me-1"></i>
+                                    Assistant
+                                </small>
+                            </div>
+                            <div class="message-content">
+                                <div class="typing-indicator">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div v-else class="empty-conversation-placeholder">
@@ -649,11 +666,20 @@ const ModelQueryComponent = {
         const submitQuery = async () => {
             if (!canSubmit.value) return;
             
+            const currentQuery = queryText.value;
+            
+            // Add user message to conversation history immediately
+            conversationHistory.value.push({
+                role: 'user',
+                content: currentQuery
+            });
+            
+            // Clear the query text immediately
+            queryText.value = '';
+            
+            // Set loading state
             isLoading.value = true;
             error.value = '';
-            
-            // We don't need to add the user message to conversation history here
-            // because the backend will add it to the history it returns
             
             // Scroll to the bottom of the conversation container
             setTimeout(() => {
@@ -665,9 +691,10 @@ const ModelQueryComponent = {
             
             try {
                 // Prepare request data for tag-based system
+                // Use the conversation history minus the user message we just added for the request
                 const requestData = {
-                    query: queryText.value,
-                    history: conversationHistory.value,
+                    query: currentQuery,
+                    history: conversationHistory.value.slice(0, -1), // Exclude the user message we just added
                     tags: selectedTags.value,
                     include_untagged: includeUntagged.value
                 };
@@ -681,10 +708,6 @@ const ModelQueryComponent = {
                 if (currentConversationId.value) {
                     requestData.conversation_id = currentConversationId.value;
                 }
-                
-                // Clear the query text
-                const currentQuery = queryText.value;
-                queryText.value = '';
                 
                 // Send request to chat API
                 const response = await fetch('/api/v1/chat/', {
@@ -736,13 +759,18 @@ const ModelQueryComponent = {
                         resultsContainer.innerHTML = '';
                     }
                 } else {
-                    // Restore the query text
+                    // Remove the user message we added and restore the query text
+                    conversationHistory.value.pop();
                     queryText.value = currentQuery;
                     
                     const errorData = await response.json();
                     error.value = errorData.detail || 'Failed to process query. Please try again.';
                 }
             } catch (err) {
+                // Remove the user message we added and restore the query text
+                conversationHistory.value.pop();
+                queryText.value = currentQuery;
+                
                 console.error('Error submitting query:', err);
                 error.value = `Error submitting query: ${err.message}`;
             } finally {
