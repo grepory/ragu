@@ -79,92 +79,10 @@
         <div class="main-content">
             <main>
                 <!-- Chat Interface (visible by default) -->
-                <div id="chat-interface" class="content-panel active">
-                    <div id="model-query-container">
-                        <model-query-component></model-query-component>
-                    </div>
-                </div>
+                {% include "chat_interface.html" %}
                 
                 <!-- File Management Interface (hidden by default) -->
-                <div id="file-management" class="content-panel">
-                    <div class="file-management-container">
-                        <div class="documents-section">
-                            <div class="section-header">
-                                <h4><i class="bi bi-file-earmark-text me-2"></i>All Documents</h4>
-                                <div class="upload-controls">
-                                    <input type="file" id="file-input" multiple accept=".txt,.pdf,.md,.doc,.docx" style="display: none;">
-                                    <button class="btn btn-primary btn-sm" id="upload-files-btn">
-                                        <i class="bi bi-cloud-upload me-1"></i>Upload Files
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <!-- Document Search Section -->
-                            <div class="document-search-section">
-                                <div class="search-header">
-                                    <h6><i class="bi bi-search me-2"></i>Search Documents</h6>
-                                </div>
-                                <div class="search-controls">
-                                    <div class="input-group">
-                                        <input type="text" class="form-control" id="document-search-input" 
-                                               placeholder="Search documents...">
-                                        <button class="btn btn-outline-primary" id="search-btn">
-                                            <i class="bi bi-search"></i>
-                                        </button>
-                                        <button class="btn btn-outline-secondary" id="clear-search-btn" style="display: none;">
-                                            <i class="bi bi-x-circle"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div id="search-results-info" class="search-results-info" style="display: none;">
-                                    <small class="text-muted">
-                                        <span id="search-results-count">0</span> results for "<span id="search-query-display"></span>"
-                                    </small>
-                                </div>
-                            </div>
-                            <div class="tag-filter-section">
-                                <div class="tag-filter-header">
-                                    <h6><i class="bi bi-tags me-2"></i>Filter by Tags</h6>
-                                    <div class="filter-controls">
-                                        <input type="text" class="form-control form-control-sm" id="tag-filter-search"
-                                               placeholder="Search tags...">
-                                        <button class="btn btn-outline-secondary btn-sm" id="clear-filters-btn">
-                                            <i class="bi bi-x-circle me-1"></i>Clear
-                                        </button>
-                                    </div>
-                                </div>
-                                <div id="tag-filter-list" class="tag-filter-list">
-                                    <!-- Tag filters will be loaded here -->
-                                </div>
-                                <div id="tag-filter-info" class="tag-filter-info" style="display: none;">
-                                    <small class="text-muted"><span id="visible-tags-count">0</span> of <span id="total-tags-count">0</span> tags shown</small>
-                                </div>
-                            </div>
-                            
-                            <!-- Upload Progress Area -->
-                            <div id="upload-progress-area" class="upload-progress-area" style="display: none;">
-                                <div class="upload-progress-header">
-                                    <h6><i class="bi bi-cloud-upload me-2"></i>Uploading Files...</h6>
-                                </div>
-                                <div id="upload-progress-list" class="upload-progress-list">
-                                    <!-- Upload progress items will appear here -->
-                                </div>
-                            </div>
-                            
-                            <div id="documents-list" class="documents-list">
-                                <!-- Documents will be loaded here -->
-                            </div>
-                            
-                            <div id="no-documents-message" class="text-center text-muted p-5" style="display: none;">
-                                <i class="bi bi-inbox fs-1"></i>
-                                <p class="mt-3">No documents found</p>
-                                <button class="btn btn-primary" onclick="document.getElementById('upload-files-btn').click()">
-                                    <i class="bi bi-cloud-upload me-1"></i>Upload your first document
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                {% include "file_management.html" %}
             </main>
         </div>
     </div>
