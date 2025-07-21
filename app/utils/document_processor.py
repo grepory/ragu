@@ -1,7 +1,10 @@
 import os
 import uuid
+import signal
+import asyncio
 from typing import List, Dict, Any, Tuple
 import tempfile
+from functools import wraps
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import (
     TextLoader,
@@ -11,6 +14,36 @@ from langchain_community.document_loaders import (
 )
 
 from app.core.config import settings
+
+
+class TimeoutError(Exception):
+    """Raised when document processing times out."""
+    pass
+
+
+async def run_with_timeout(func, timeout_seconds: int, *args, **kwargs):
+    """Run a function with a timeout using asyncio.
+    
+    This is cross-platform and works on Windows, Mac, and Linux.
+    """
+    import concurrent.futures
+    import threading
+    
+    def target():
+        return func(*args, **kwargs)
+    
+    # Use ThreadPoolExecutor to run the function in a separate thread
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future = executor.submit(target)
+        try:
+            # Wait for the result with timeout
+            result = future.result(timeout=timeout_seconds)
+            return result
+        except concurrent.futures.TimeoutError:
+            # Cancel the future (though it may not stop immediately)
+            future.cancel()
+            raise TimeoutError(f"Document processing timed out after {timeout_seconds} seconds")
+
 
 class DocumentProcessor:
     """Utility for processing documents for RAG."""
@@ -23,7 +56,29 @@ class DocumentProcessor:
             length_function=len,
         )
     
-    def process_file(self, file_path: str, file_name: str) -> Tuple[List[str], List[Dict[str, Any]], List[str]]:
+    def check_file_size(self, file_path: str, file_name: str) -> None:
+        """Check if file size is within limits.
+        
+        Args:
+            file_path: Path to the file
+            file_name: Original filename
+            
+        Raises:
+            ValueError: If file is too large
+        """
+        try:
+            file_size_bytes = os.path.getsize(file_path)
+            file_size_mb = file_size_bytes / (1024 * 1024)
+            
+            if file_size_mb > settings.MAX_FILE_SIZE_MB:
+                raise ValueError(
+                    f"File '{file_name}' is {file_size_mb:.1f}MB, which exceeds the maximum allowed size of {settings.MAX_FILE_SIZE_MB}MB. "
+                    f"Please try a smaller file or contact support for assistance with large files."
+                )
+        except OSError as e:
+            raise ValueError(f"Could not check file size for '{file_name}': {str(e)}")
+    
+    def _process_file_sync(self, file_path: str, file_name: str) -> Tuple[List[str], List[Dict[str, Any]], List[str]]:
         """Process a file and split it into chunks.
         
         Args:
@@ -87,6 +142,44 @@ class DocumentProcessor:
             print(f"Traceback: {traceback.format_exc()}")
             # Return empty lists to avoid breaking the upload process
             return [], [], []
+    
+    async def process_file(self, file_path: str, file_name: str) -> Tuple[List[str], List[Dict[str, Any]], List[str]]:
+        """Process a file and split it into chunks with size and timeout checks.
+        
+        Args:
+            file_path: Path to the file
+            file_name: Original filename
+            
+        Returns:
+            Tuple of (chunks, metadatas, ids)
+        """
+        try:
+            # Check file size first
+            self.check_file_size(file_path, file_name)
+            
+            # Process with timeout using cross-platform async approach
+            return await run_with_timeout(
+                self._process_file_sync,
+                settings.PROCESSING_TIMEOUT_SECONDS,
+                file_path,
+                file_name
+            )
+            
+        except TimeoutError:
+            raise ValueError(
+                f"Processing of '{file_name}' timed out after {settings.PROCESSING_TIMEOUT_SECONDS} seconds. "
+                f"This usually happens with very large or complex files. Please try a smaller file or contact support."
+            )
+        except ValueError:
+            # Re-raise ValueError (size/timeout errors)
+            raise
+        except Exception as e:
+            # Log and convert other errors to ValueError
+            import traceback
+            print(f"Error processing file {file_name}: {str(e)}")
+            print(f"File path: {file_path}")
+            print(f"Traceback: {traceback.format_exc()}")
+            raise ValueError(f"Failed to process '{file_name}': {str(e)}")
     
     def process_text(self, text: str, source: str = "direct_input") -> Tuple[List[str], List[Dict[str, Any]], List[str]]:
         """Process raw text and split it into chunks.

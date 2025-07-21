@@ -3,7 +3,7 @@ from typing import List, Dict, Any, Optional
 import chromadb
 from chromadb.config import Settings as ChromaSettings
 from chromadb.utils import embedding_functions
-from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
+from chromadb.utils.embedding_functions import DefaultEmbeddingFunction, ONNXMiniLM_L6_V2
 
 from app.core.config import settings
 
@@ -28,37 +28,59 @@ class ChromaClient:
         )
         
         # Try to use the embedding function based on the configured LLM provider
-        if settings.DEFAULT_LLM_PROVIDER == "openai" and settings.OPENAI_API_KEY:
-            try:
-                # Try to use OpenAI embedding function
-                self.default_ef = embedding_functions.OpenAIEmbeddingFunction(
-                    api_key=settings.OPENAI_API_KEY,
-                    model_name="text-embedding-ada-002"
-                )
-                print("Using OpenAI embedding function")
-            except Exception as e:
-                print(f"Failed to initialize OpenAI embedding function: {e}")
-                # Fall back to DefaultEmbeddingFunction
+        # Always try ONNX first as it's more stable and avoids CoreML issues
+        try:
+            # Try to use optimized ONNX embedding function (avoids CoreML warnings)
+            import platform
+            providers = []
+            
+            # Configure providers based on platform for best performance
+            if platform.system() == "Darwin":  # macOS
+                # Use CPU provider to avoid CoreML issues that cause warnings
+                providers = ["CPUExecutionProvider"]
+            elif platform.system() == "Windows":
+                providers = ["CPUExecutionProvider"]
+            else:  # Linux
+                providers = ["CPUExecutionProvider"]
+            
+            self.default_ef = ONNXMiniLM_L6_V2(preferred_providers=providers)
+            print(f"Using optimized ONNX embedding function (providers: {providers})")
+            
+        except Exception as onnx_error:
+            print(f"Failed to initialize ONNX embedding function: {onnx_error}")
+            
+            # Try provider-specific embedding functions
+            if settings.DEFAULT_LLM_PROVIDER == "openai" and settings.OPENAI_API_KEY:
+                try:
+                    # Try to use OpenAI embedding function
+                    self.default_ef = embedding_functions.OpenAIEmbeddingFunction(
+                        api_key=settings.OPENAI_API_KEY,
+                        model_name="text-embedding-ada-002"
+                    )
+                    print("Using OpenAI embedding function")
+                except Exception as e:
+                    print(f"Failed to initialize OpenAI embedding function: {e}")
+                    # Fall back to DefaultEmbeddingFunction
+                    self.default_ef = DefaultEmbeddingFunction()
+                    print("Using ChromaDB's DefaultEmbeddingFunction as fallback")
+            elif settings.DEFAULT_LLM_PROVIDER == "ollama" and settings.OLLAMA_EMBED_MODEL:
+                try:
+                    # Try to use Ollama embedding function if available
+                    from chromadb.utils.embedding_functions import OllamaEmbeddingFunction
+                    self.default_ef = OllamaEmbeddingFunction(
+                        url=settings.OLLAMA_BASE_URL,
+                        model_name=settings.OLLAMA_EMBED_MODEL
+                    )
+                    print(f"Using Ollama embedding function with model {settings.OLLAMA_EMBED_MODEL}")
+                except Exception as e:
+                    print(f"Failed to initialize Ollama embedding function: {e}")
+                    # Fall back to DefaultEmbeddingFunction
+                    self.default_ef = DefaultEmbeddingFunction()
+                    print("Using ChromaDB's DefaultEmbeddingFunction as fallback")
+            else:
+                # Use DefaultEmbeddingFunction as a final fallback
                 self.default_ef = DefaultEmbeddingFunction()
                 print("Using ChromaDB's DefaultEmbeddingFunction as fallback")
-        elif settings.DEFAULT_LLM_PROVIDER == "ollama" and settings.OLLAMA_EMBED_MODEL:
-            try:
-                # Try to use Ollama embedding function if available
-                from chromadb.utils.embedding_functions import OllamaEmbeddingFunction
-                self.default_ef = OllamaEmbeddingFunction(
-                    url=settings.OLLAMA_BASE_URL,
-                    model_name=settings.OLLAMA_EMBED_MODEL
-                )
-                print(f"Using Ollama embedding function with model {settings.OLLAMA_EMBED_MODEL}")
-            except Exception as e:
-                print(f"Failed to initialize Ollama embedding function: {e}")
-                # Fall back to DefaultEmbeddingFunction
-                self.default_ef = DefaultEmbeddingFunction()
-                print("Using ChromaDB's DefaultEmbeddingFunction as fallback")
-        else:
-            # Use DefaultEmbeddingFunction as a fallback
-            self.default_ef = DefaultEmbeddingFunction()
-            print("Using ChromaDB's DefaultEmbeddingFunction as fallback")
     
     def get_or_create_collection(self, collection_name: str) -> chromadb.Collection:
         """Get or create a collection in ChromaDB.
@@ -358,10 +380,10 @@ class ChromaClient:
         return sorted(list(all_tags))
     
     def get_tag_counts(self) -> Dict[str, int]:
-        """Get tag usage statistics.
+        """Get tag usage statistics by document count (not chunk count).
         
         Returns:
-            Dictionary mapping tag names to usage counts
+            Dictionary mapping tag names to number of unique documents that have that tag
         """
         collection = self.get_documents_collection()
         
@@ -371,10 +393,18 @@ class ChromaClient:
         if not result or not result.get("metadatas"):
             return {}
         
-        # Count tag usage
-        tag_counts = {}
+        # Group chunks by source (document) first
+        documents_by_source = {}
         for metadata in result["metadatas"]:
+            source = metadata.get("source", "unknown")
             tags_str = metadata.get("tags", "")
+            
+            if source not in documents_by_source:
+                documents_by_source[source] = tags_str
+        
+        # Count tag usage by unique documents (not chunks)
+        tag_counts = {}
+        for source, tags_str in documents_by_source.items():
             if tags_str and isinstance(tags_str, str):
                 # Split comma-separated tags and clean them
                 tags = [tag.strip() for tag in tags_str.split(",") if tag.strip()]

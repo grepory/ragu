@@ -85,6 +85,14 @@ class Settings(BaseSettings):
         default=200,
         description="Overlap between text chunks"
     )
+    MAX_FILE_SIZE_MB: int = Field(
+        default=10,
+        description="Maximum file size in MB for document upload"
+    )
+    PROCESSING_TIMEOUT_SECONDS: int = Field(
+        default=60,
+        description="Maximum time in seconds to process a document"
+    )
 
     class Config:
         case_sensitive = True

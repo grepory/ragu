@@ -20,6 +20,16 @@ def open_browser():
 def main():
     """Run the application with error handling."""
     try:
+        # Set environment variables to optimize embedding performance and reduce warnings
+        import os
+        
+        # Disable CoreML to avoid warnings and improve stability
+        os.environ["ONNX_DISABLE_COREML"] = "1"
+        # Use CPU execution provider for ONNX
+        os.environ["ONNX_EXECUTION_PROVIDERS"] = "CPUExecutionProvider"
+        # Disable telemetry warnings
+        os.environ["TOKENIZERS_PARALLELISM"] = "false"
+        
         # Try to import and run the application
         from app.main import app
         import uvicorn
