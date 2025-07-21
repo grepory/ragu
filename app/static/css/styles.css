@@ -1511,15 +1511,6 @@ main {
     overflow-y: auto;
 }
 
-.collections-section {
-    background-color: #E2D5C1;
-    border-radius: 0.5rem;
-    padding: 1.5rem;
-    height: fit-content;
-    max-width: 800px;
-    margin: 0 auto;
-}
-
 .section-header {
     display: flex;
     justify-content: space-between;
@@ -1532,75 +1523,6 @@ main {
 .section-header h4 {
     margin: 0;
     color: var(--salon-drab);
-}
-
-.collections-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    margin: 0;
-    padding: 0;
-}
-
-.collection-item {
-    background-color: var(--oxford-stone);
-    border-radius: 0.25rem;
-    padding: 1rem;
-    border: 1px solid #B8AD96;
-    transition: all 0.2s ease;
-    position: relative;
-    cursor: pointer;
-    margin: 0;
-}
-
-.collection-item:hover {
-    background-color: #B8AD96;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-/* Drag and drop styles for collections */
-.collection-item.drag-over {
-    border: 2px dashed #007bff;
-    background-color: rgba(0, 123, 255, 0.1);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.2);
-}
-
-.drag-drop-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 123, 255, 0.9);
-    color: white;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    border-radius: 0.25rem;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-    pointer-events: none;
-}
-
-.collection-item.drag-over .drag-drop-overlay {
-    opacity: 1;
-}
-
-.collection-content {
-    position: relative;
-    z-index: 1;
-}
-
-.drag-drop-instructions {
-    text-align: center;
-    margin-bottom: 1.5rem;
-    padding: 1rem;
-    background-color: rgba(0, 123, 255, 0.05);
-    border: 1px dashed rgba(0, 123, 255, 0.3);
-    border-radius: 0.25rem;
 }
 
 /* Upload Progress Styling */
@@ -1648,15 +1570,6 @@ main {
     color: var(--smelt-black);
 }
 
-.collection-badge {
-    background-color: var(--oxford-stone);
-    color: white;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.75rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-}
-
 .progress-status {
     display: flex;
     align-items: center;
@@ -1666,16 +1579,6 @@ main {
 .status-text {
     font-size: 0.875rem;
     font-weight: 500;
-}
-
-/* Collection uploading state */
-.collection-item.uploading {
-    border-color: #007bff;
-    background-color: var(--oxford-stone);
-}
-
-.collection-item.uploading .upload-overlay {
-    opacity: 1;
 }
 
 .upload-overlay {
@@ -1719,23 +1622,6 @@ main {
 
 .spin {
     animation: spin 1s linear infinite;
-}
-
-.collection-name {
-    font-weight: bold;
-    margin-bottom: 0.5rem;
-    color: var(--salon-drab);
-}
-
-.collection-stats {
-    font-size: 0.85rem;
-    color: #6c757d;
-}
-
-.collection-documents {
-    margin-top: 1rem;
-    border-top: 1px solid #D0C4B0;
-    padding-top: 1rem;
 }
 
 .documents-list {
