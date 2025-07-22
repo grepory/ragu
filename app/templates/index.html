@@ -140,109 +140,6 @@
         </div>
     </div>
 
-    <!-- Vue Tag Suggestion Modal - FORCE HIDDEN -->
-    <div id="tagSuggestionModal" class="tag-suggestion-modal-overlay" v-show="false" @click.self="closeTagModal" style="display: none !important;">
-        <div class="tag-suggestion-modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="bi bi-tags me-2"></i>Tag Suggestions for {{ currentTagDocument }}
-                </h5>
-                <button type="button" class="btn-close" @click="closeTagModal" aria-label="Close">
-                    <i class="bi bi-x"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <!-- Loading state -->
-                <div v-if="tagModalState === 'loading'" class="text-center p-4">
-                    <div class="spinner-border text-primary" role="status"></div>
-                    <p class="mt-3 mb-0">LLM is analyzing document content...</p>
-                </div>
-                
-                <!-- Main content -->
-                <div v-if="tagModalState === 'loaded'">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Suggested Tags:</label>
-                        <div class="suggested-tags-list">
-                            <div v-if="suggestedTags.length > 0">
-                                <div v-for="tag in suggestedTags" :key="'suggested-' + tag" 
-                                     class="suggested-tag" @click="addTagToSelection(tag)">
-                                    {{ tag }}
-                                </div>
-                            </div>
-                            <p v-else class="text-muted">No tag suggestions generated.</p>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Add Your Own Tags:</label>
-                        <div class="custom-tag-input">
-                            <input type="text" class="form-control" v-model="customTagInput" 
-                                   @keydown.enter.prevent="addCustomTag"
-                                   placeholder="Type a tag and press Enter...">
-                            <small class="form-text text-muted">Press Enter to add custom tags</small>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Selected Tags:</label>
-                        <div class="selected-tags-list">
-                            <div v-if="selectedTagsList.length > 0">
-                                <div v-for="tag in selectedTagsList" :key="'selected-' + tag" class="selected-tag">
-                                    {{ tag }}
-                                    <button type="button" class="remove-tag" @click="removeTagFromSelection(tag)">
-                                        <i class="bi bi-x"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <p v-else class="text-muted">No tags selected yet.</p>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Existing Tags:</label>
-                        <div class="existing-tags-list">
-                            <div v-if="existingTags.length > 0">
-                                <div v-for="tag in existingTags" :key="'existing-' + tag" 
-                                     class="existing-tag" @click="addTagToSelection(tag)">
-                                    {{ tag }}
-                                </div>
-                            </div>
-                            <p v-else class="text-muted">No existing tags found.</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Error state -->
-                <div v-if="tagModalState === 'error'" class="alert alert-danger">
-                    <h6 class="alert-heading">Failed to Generate Tag Suggestions</h6>
-                    <p class="mb-0">There was an error analyzing the document. You can still add custom tags manually.</p>
-                    <div class="mt-3">
-                        <input type="text" class="form-control" v-model="customTagInput" 
-                               @keydown.enter.prevent="addCustomTag"
-                               placeholder="Type a tag and press Enter...">
-                        <div class="selected-tags-list mt-3">
-                            <div v-if="selectedTagsList.length > 0">
-                                <div v-for="tag in selectedTagsList" :key="'error-selected-' + tag" class="selected-tag">
-                                    {{ tag }}
-                                    <button type="button" class="remove-tag" @click="removeTagFromSelection(tag)">
-                                        <i class="bi bi-x"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <p v-else class="text-muted">No tags selected yet.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" @click="closeTagModal">Cancel</button>
-                <button type="button" class="btn btn-primary" @click="applySelectedTags" :disabled="selectedTagsList.length === 0">
-                    <i class="bi bi-check-lg me-1"></i>Apply Tags
-                </button>
-            </div>
-        </div>
-    </div>
-    
     <!-- Custom JavaScript -->
     <script src="{{ url_for('static', path='/js/model-query.js') }}"></script>
     
@@ -1710,39 +1607,6 @@
                 }
             }
             
-            // Debug function to force close any stuck modal
-            window.forceCloseTagModal = function() {
-                console.log('Force closing tag modal...');
-                if (window.tagModalMethods) {
-                    window.tagModalMethods.closeModal();
-                } else {
-                    // Fallback: remove modal elements directly
-                    const modal = document.querySelector('.tag-suggestion-modal-overlay');
-                    if (modal) {
-                        modal.style.display = 'none';
-                    }
-                }
-            };
-            
-            // SIMPLE MODAL FUNCTIONS
-            window.showSimpleModal = function(fileName = 'test-file.txt') {
-                console.log('Showing simple modal for:', fileName);
-                const modal = document.getElementById('simpleTagModal');
-                const container = document.getElementById('simpleTagContainer');
-                const applyBtn = document.getElementById('simpleApplyTags');
-                
-                if (modal) {
-                    modal.style.display = 'flex';
-                    container.innerHTML = '<p>Testing tag suggestions...</p>';
-                    applyBtn.style.display = 'none';
-                    
-                    // Test API call
-                    testTagAPI(fileName, container, applyBtn);
-                } else {
-                    console.error('Simple modal not found');
-                }
-            };
-            
             // Promise-based modal for upload flow
             async function showSimpleTagModal(fileName) {
                 return new Promise((resolve) => {
@@ -2017,34 +1881,6 @@
                 }
             }
             
-            async function testTagAPI(fileName, container, applyBtn) {
-                try {
-                    console.log('Testing tag API for:', fileName);
-                    const formData = new FormData();
-                    formData.append('source_filename', fileName);
-                    
-                    const response = await fetch('/api/v1/documents/suggest-tags', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        console.log('Tag API success:', data);
-                        container.innerHTML = '<h6>Suggested Tags:</h6>' + 
-                            data.suggested_tags.map(tag => `<span style="background: #e0e0e0; padding: 4px 8px; margin: 2px; border-radius: 4px; display: inline-block;">${tag}</span>`).join('');
-                        applyBtn.style.display = 'block';
-                    } else {
-                        const errorText = await response.text();
-                        console.error('Tag API error:', errorText);
-                        container.innerHTML = '<p style="color: red;">Error: ' + errorText + '</p>';
-                    }
-                } catch (error) {
-                    console.error('Tag API exception:', error);
-                    container.innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
-                }
-            }
-            
             // CONFIRMATION MODAL FUNCTIONS
             window.showConfirmationModal = function(title, message, onConfirm, onCancel = null) {
                 return new Promise((resolve) => {
@@ -2223,24 +2059,6 @@
 
             window.showInfoAlert = function(message, title = 'Information') {
                 return window.showAlert(message, 'info', title);
-            };
-
-            // Debug function to test confirmation modal
-            window.testConfirmationModal = async function() {
-                const result = await window.showConfirmationModal(
-                    'Test Confirmation',
-                    'This is a test of the themed confirmation modal.\n\nDoes it look good?'
-                );
-                console.log('Confirmation result:', result);
-                await window.showSuccessAlert(result ? 'You clicked Confirm!' : 'You clicked Cancel or closed the modal');
-            };
-
-            // Debug function to test alert modal
-            window.testAlertModal = async function() {
-                await window.showSuccessAlert('This is a success message!');
-                await window.showErrorAlert('This is an error message!');
-                await window.showWarningAlert('This is a warning message!');
-                await window.showInfoAlert('This is an info message!');
             };
             
             // Initialize tag modal on page load
