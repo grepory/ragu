@@ -797,6 +797,41 @@
     background-color: rgba(255, 255, 255, 0.2);
 }
 
+/* Retry button styles */
+.message-actions {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.user-message:hover .message-actions {
+    opacity: 1;
+}
+
+.retry-btn {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.5rem;
+    border-color: var(--salon-drab);
+    color: var(--salon-drab);
+    background-color: transparent;
+    border-radius: 0.25rem;
+    transition: all 0.2s ease;
+}
+
+.retry-btn:hover {
+    background-color: var(--salon-drab);
+    border-color: var(--salon-drab);
+    color: var(--joas-white);
+}
+
+.retry-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.retry-btn i {
+    font-size: 0.8rem;
+}
+
 .custom-tag-input .form-text {
     color: rgba(73, 65, 53, 0.7);
     font-size: 0.8rem;

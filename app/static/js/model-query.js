@@ -33,7 +33,19 @@ const ModelQueryComponent = {
                                 </small>
                             </div>
                             <div class="message-content">
-                                <div v-if="message.role === 'user'">{{ message.content }}</div>
+                                <div v-if="message.role === 'user'">
+                                    {{ message.content }}
+                                    <div class="message-actions mt-1">
+                                        <button 
+                                            class="btn btn-sm btn-outline-secondary retry-btn"
+                                            @click="retryMessage(index)"
+                                            :disabled="isLoading"
+                                            title="Retry with current tag selection"
+                                        >
+                                            <i class="bi bi-arrow-clockwise"></i>
+                                        </button>
+                                    </div>
+                                </div>
                                 <div v-else v-html="parseMarkdown(message.content)" class="markdown-content"></div>
                             </div>
                         </div>
@@ -854,6 +866,102 @@ const ModelQueryComponent = {
             }
         };
         
+        // Retry a message with current tag context
+        const retryMessage = async (messageIndex) => {
+            if (isLoading.value || messageIndex >= conversationHistory.value.length) return;
+            
+            const userMessage = conversationHistory.value[messageIndex];
+            if (userMessage.role !== 'user') return;
+            
+            // Remove all messages after the selected user message
+            const newHistory = conversationHistory.value.slice(0, messageIndex + 1);
+            conversationHistory.value = newHistory;
+            
+            // Set loading state
+            isLoading.value = true;
+            error.value = '';
+            
+            // Scroll to the bottom of the conversation container
+            setTimeout(() => {
+                const container = document.querySelector('.conversation-container');
+                if (container) {
+                    container.scrollTop = container.scrollHeight;
+                }
+            }, 50);
+            
+            try {
+                // Prepare request data with current tag selection
+                const requestData = {
+                    query: userMessage.content,
+                    history: conversationHistory.value.slice(0, -1), // Exclude the user message
+                    tags: selectedTags.value,
+                    include_untagged: includeUntagged.value
+                };
+                
+                // Add model if selected
+                if (selectedModel.value) {
+                    requestData.model = selectedModel.value;
+                }
+                
+                // Add conversation ID if we're continuing a conversation
+                if (currentConversationId.value) {
+                    requestData.conversation_id = currentConversationId.value;
+                }
+                
+                // Send request to chat API
+                const response = await fetch('/api/v1/chat/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    results.value = data;
+                    
+                    // Update conversation history with the response
+                    conversationHistory.value = data.history;
+                    
+                    // Update last sources
+                    lastSources.value = data.sources;
+                    
+                    // Update current conversation ID if provided
+                    if (data.conversation_id) {
+                        currentConversationId.value = data.conversation_id;
+                        
+                        // Update conversation with current tag preferences
+                        updateConversationTagPreferences(currentConversationId.value);
+                    }
+                    
+                    // Refresh sidebar conversations if function is available
+                    if (window.refreshSidebarConversations) {
+                        window.refreshSidebarConversations();
+                    }
+                    
+                    // Refresh tags in case new ones were created
+                    fetchTags();
+                    
+                    // Scroll to the bottom of the conversation container
+                    setTimeout(() => {
+                        const container = document.querySelector('.conversation-container');
+                        if (container) {
+                            container.scrollTop = container.scrollHeight;
+                        }
+                    }, 50);
+                } else {
+                    const errorData = await response.json();
+                    error.value = errorData.detail || 'Failed to retry query. Please try again.';
+                }
+            } catch (err) {
+                console.error('Error retrying query:', err);
+                error.value = `Error retrying query: ${err.message}`;
+            } finally {
+                isLoading.value = false;
+            }
+        };
+        
         // Parse markdown content
         const parseMarkdown = (content) => {
             if (!content) return '';
@@ -914,6 +1022,7 @@ const ModelQueryComponent = {
             updateConversationTagPreferences,
             renameConversation,
             confirmDeleteConversation,
+            retryMessage,
             parseMarkdown
         };
     }
