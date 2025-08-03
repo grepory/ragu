@@ -70,6 +70,16 @@ class Settings(BaseSettings):
         description="Default OpenAI model to use"
     )
     
+    # Mistral settings
+    MISTRAL_API_KEY: str = Field(
+        default=os.getenv("MISTRAL_API_KEY", ""),
+        description="Mistral API key for OCR services"
+    )
+    MISTRAL_BASE_URL: str = Field(
+        default=os.getenv("MISTRAL_BASE_URL", "https://api.mistral.ai"),
+        description="Base URL for Mistral API"
+    )
+    
     # For backward compatibility
     DEFAULT_MODEL: str = Field(
         default=os.getenv("DEFAULT_MODEL", "llama2"),
@@ -86,7 +96,7 @@ class Settings(BaseSettings):
         description="Overlap between text chunks"
     )
     MAX_FILE_SIZE_MB: int = Field(
-        default=10,
+        default=30,
         description="Maximum file size in MB for document upload"
     )
     PROCESSING_TIMEOUT_SECONDS: int = Field(

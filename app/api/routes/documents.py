@@ -1,4 +1,6 @@
 import os
+import traceback
+
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends, Query
 from typing import List, Optional, Dict, Any
 import json
@@ -115,8 +117,10 @@ async def upload_document(
             # Clean up temporary file
             if os.path.exists(temp_file_path):
                 os.unlink(temp_file_path)
-                
+    except HTTPException as e:
+        raise e
     except Exception as e:
+        print(f"Error processing file '{file.filename}': {traceback.print_exc()}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to upload document: {str(e)}"

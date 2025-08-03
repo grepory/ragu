@@ -318,7 +318,7 @@ const PDFUpload = () => {
                 {isUploading ? (
                     <>
                         <span className="loading-spinner me-2"></span>
-                        Uploading...
+                        Processing with OCR...
                     </>
                 ) : 'Upload Files'}
             </button>

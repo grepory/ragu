@@ -15,6 +15,13 @@ from langchain_community.document_loaders import (
 
 from app.core.config import settings
 
+# Import Mistral OCR service conditionally
+try:
+    from app.services.mistral_ocr import mistral_ocr_service
+except Exception as e:
+    print(f"Warning: Mistral OCR service not available: {e}")
+    mistral_ocr_service = None
+
 
 class TimeoutError(Exception):
     """Raised when document processing times out."""
@@ -78,6 +85,76 @@ class DocumentProcessor:
         except OSError as e:
             raise ValueError(f"Could not check file size for '{file_name}': {str(e)}")
     
+    async def _process_pdf_with_ocr(self, file_path: str, file_name: str) -> Tuple[List[str], List[Dict[str, Any]], List[str]]:
+        """Process a PDF using Mistral OCR.
+        
+        Args:
+            file_path: Path to the PDF file
+            file_name: Original filename
+            
+        Returns:
+            Tuple of (chunks, metadatas, ids)
+        """
+        try:
+            # Extract text using Mistral OCR
+            extracted_text = await mistral_ocr_service.extract_text_from_pdf(file_path)
+            
+            # Process the extracted markdown text
+            return self.process_text(extracted_text, file_name, processing_method="mistral_ocr")
+            
+        except Exception as e:
+            print(f"Mistral OCR failed for {file_name}: {str(e)}")
+            print("Falling back to traditional PDF processing...")
+            # Fallback to traditional PDF processing
+            return self._process_pdf_traditional(file_path, file_name)
+    
+    def _process_pdf_traditional(self, file_path: str, file_name: str) -> Tuple[List[str], List[Dict[str, Any]], List[str]]:
+        """Process a PDF using traditional PyPDFLoader.
+        
+        Args:
+            file_path: Path to the PDF file
+            file_name: Original filename
+            
+        Returns:
+            Tuple of (chunks, metadatas, ids)
+        """
+        try:
+            loader = PyPDFLoader(file_path)
+            documents = loader.load()
+            chunks = self.text_splitter.split_documents(documents)
+            
+            # Extract text and metadata
+            texts = [chunk.page_content for chunk in chunks]
+            metadatas = []
+            ids = []
+            
+            for i, chunk in enumerate(chunks):
+                # Create metadata for each chunk
+                metadata = {
+                    "source": file_name,
+                    "original_filename": file_name,
+                    "chunk": i,
+                    "total_chunks": len(chunks),
+                    "processing_method": "traditional_pdf"
+                }
+                
+                # Add any existing metadata from the document (but don't override source)
+                if hasattr(chunk, 'metadata') and chunk.metadata:
+                    for key, value in chunk.metadata.items():
+                        # Don't let document loaders override our source filename
+                        if key not in ['source', 'original_filename', 'processing_method']:
+                            metadata[key] = value
+                
+                metadatas.append(metadata)
+                # Generate a unique ID for each chunk
+                ids.append(str(uuid.uuid4()))
+            
+            return texts, metadatas, ids
+            
+        except Exception as e:
+            print(f"Traditional PDF processing failed for {file_name}: {str(e)}")
+            return [], [], []
+
     def _process_file_sync(self, file_path: str, file_name: str) -> Tuple[List[str], List[Dict[str, Any]], List[str]]:
         """Process a file and split it into chunks.
         
@@ -93,7 +170,9 @@ class DocumentProcessor:
         
         try:
             if file_extension == '.pdf':
-                loader = PyPDFLoader(file_path)
+                # For PDFs, we need to handle OCR asynchronously
+                # This method will be called from the async wrapper
+                return self._process_pdf_traditional(file_path, file_name)
             elif file_extension in ['.docx', '.doc']:
                 loader = Docx2txtLoader(file_path)
             elif file_extension == '.csv':
@@ -102,36 +181,38 @@ class DocumentProcessor:
                 # Default to text loader for other file types
                 loader = TextLoader(file_path)
             
-            # Load and split the document
-            documents = loader.load()
-            chunks = self.text_splitter.split_documents(documents)
-            
-            # Extract text and metadata
-            texts = [chunk.page_content for chunk in chunks]
-            metadatas = []
-            ids = []
-            
-            for i, chunk in enumerate(chunks):
-                # Create metadata for each chunk
-                metadata = {
-                    "source": file_name,  # This should be the original filename
-                    "original_filename": file_name,  # Add explicit field for original filename
-                    "chunk": i,
-                    "total_chunks": len(chunks),
-                }
+            # For non-PDF files, use traditional processing
+            if file_extension != '.pdf':
+                # Load and split the document
+                documents = loader.load()
+                chunks = self.text_splitter.split_documents(documents)
                 
-                # Add any existing metadata from the document (but don't override source)
-                if hasattr(chunk, 'metadata') and chunk.metadata:
-                    for key, value in chunk.metadata.items():
-                        # Don't let document loaders override our source filename
-                        if key not in ['source', 'original_filename']:
-                            metadata[key] = value
+                # Extract text and metadata
+                texts = [chunk.page_content for chunk in chunks]
+                metadatas = []
+                ids = []
                 
-                metadatas.append(metadata)
-                # Generate a unique ID for each chunk
-                ids.append(str(uuid.uuid4()))
-            
-            return texts, metadatas, ids
+                for i, chunk in enumerate(chunks):
+                    # Create metadata for each chunk
+                    metadata = {
+                        "source": file_name,  # This should be the original filename
+                        "original_filename": file_name,  # Add explicit field for original filename
+                        "chunk": i,
+                        "total_chunks": len(chunks),
+                    }
+                    
+                    # Add any existing metadata from the document (but don't override source)
+                    if hasattr(chunk, 'metadata') and chunk.metadata:
+                        for key, value in chunk.metadata.items():
+                            # Don't let document loaders override our source filename
+                            if key not in ['source', 'original_filename']:
+                                metadata[key] = value
+                    
+                    metadatas.append(metadata)
+                    # Generate a unique ID for each chunk
+                    ids.append(str(uuid.uuid4()))
+                
+                return texts, metadatas, ids
         
         except Exception as e:
             # Log the error with more details
@@ -157,7 +238,13 @@ class DocumentProcessor:
             # Check file size first
             self.check_file_size(file_path, file_name)
             
-            # Process with timeout using cross-platform async approach
+            # Special handling for PDFs with OCR if Mistral is configured
+            file_extension = os.path.splitext(file_name)[1].lower()
+            if file_extension == '.pdf' and mistral_ocr_service and mistral_ocr_service.is_configured():
+                print(f"Using Mistral OCR for PDF: {file_name}")
+                return await self._process_pdf_with_ocr(file_path, file_name)
+            
+            # For non-PDFs or when Mistral is not configured, use traditional processing
             return await run_with_timeout(
                 self._process_file_sync,
                 settings.PROCESSING_TIMEOUT_SECONDS,
@@ -181,12 +268,13 @@ class DocumentProcessor:
             print(f"Traceback: {traceback.format_exc()}")
             raise ValueError(f"Failed to process '{file_name}': {str(e)}")
     
-    def process_text(self, text: str, source: str = "direct_input") -> Tuple[List[str], List[Dict[str, Any]], List[str]]:
+    def process_text(self, text: str, source: str = "direct_input", processing_method: str = "text_direct") -> Tuple[List[str], List[Dict[str, Any]], List[str]]:
         """Process raw text and split it into chunks.
         
         Args:
             text: Raw text to process
             source: Source identifier for the text
+            processing_method: Method used to process the text
             
         Returns:
             Tuple of (chunks, metadatas, ids)
@@ -201,8 +289,10 @@ class DocumentProcessor:
         for i, _ in enumerate(chunks):
             metadata = {
                 "source": source,
+                "original_filename": source,
                 "chunk": i,
                 "total_chunks": len(chunks),
+                "processing_method": processing_method,
             }
             metadatas.append(metadata)
             ids.append(str(uuid.uuid4()))

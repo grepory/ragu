@@ -96,7 +96,7 @@ class ChromaClient:
                 name=collection_name,
                 embedding_function=self.default_ef
             )
-        except ValueError:
+        except (ValueError, chromadb.errors.NotFoundError):
             return self.client.create_collection(
                 name=collection_name,
                 embedding_function=self.default_ef
